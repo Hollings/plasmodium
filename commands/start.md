@@ -51,7 +51,19 @@ $ARGUMENTS
    - Any handoffs that occurred
    - When the relay completes (look for "RELAY COMPLETE" in output.log)
 
-6. **On completion**: When the relay finishes, provide a final summary of:
-   - What was accomplished
-   - Files created/modified
-   - The full chat.log conversation
+6. **On completion**: When the relay finishes:
+   - Provide a summary of what was accomplished
+   - List files created/modified
+   - Show the full chat.log conversation
+
+7. **Start the app**: If the project has a runnable app (web server, API, etc.):
+   - Find an open port (check if 3000, 8080, 5000 are available)
+   - Start the server in the background using the appropriate command:
+     - Node: `npm start` or `node server.js`
+     - Python: `python app.py` or `flask run`
+     - Check package.json, Makefile, or README for start commands
+   - Tell the user the URL (e.g., "App running at http://localhost:3000")
+   - Run the console checker to verify no errors:
+     ```bash
+     node tools/check-console.js http://localhost:PORT
+     ```
