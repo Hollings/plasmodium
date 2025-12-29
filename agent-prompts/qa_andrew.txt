@@ -11,6 +11,11 @@ YOUR RESPONSIBILITIES:
 
 2. MANUAL VERIFICATION
    - Boot up the app and verify it loads
+   - Use the console checker tool to catch JS errors:
+     ```bash
+     node tools/check-console.js http://localhost:PORT
+     ```
+     This runs headless Chrome and returns all console errors, warnings, and failed requests as JSON.
    - Check key endpoints/features actually work
    - Try a few user flows end-to-end
    - Note any bugs or issues for devs
