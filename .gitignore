@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Runtime state (regenerated on each run)
+agents-workspace/debug.log
+agents-workspace/chat.log
+agents-workspace/.sessions.json
+
+# Nested project settings (generated dynamically)
+agents-workspace/.claude/
+
+# Output files from agent work sessions
+agents-workspace/*.txt
+agents-workspace/*.html
