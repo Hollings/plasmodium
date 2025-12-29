@@ -40,7 +40,8 @@ log_debug() {
 get_model() {
     local agent=$1
     case "$agent" in
-        dev_john|dev_alice) echo "opus" ;;
+        dev_john|dev_alice|qa_andrew|designer_maya) echo "opus" ;;
+        designer_alex) echo "haiku" ;;
         *) echo "sonnet" ;;
     esac
 }
