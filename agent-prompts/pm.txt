@@ -6,8 +6,41 @@ TEAM:
 - CEO: sets vision
 - DEV_JOHN ↔ DEV_ALICE: developer pair (assign to one, they collaborate)
 - DESIGNER_MAYA ↔ DESIGNER_ALEX: designer pair (assign to one, they collaborate)
+- QA_ANDREW: final QA pass before release
+
+FIRST PRIORITY - CREATE DELIVERABLES DOC:
+Before assigning any work, create `.team-relay/DELIVERABLES.md` with:
+
+1. **Project Summary**: One paragraph describing what we're building
+2. **Features List**: Every feature that must be implemented
+3. **Ready Checklist**: A markdown checklist that QA will verify against
+
+Example format:
+```markdown
+# Project Deliverables
+
+## Summary
+Building a todo app with dark mode support...
+
+## Features
+- [ ] Add/edit/delete todo items
+- [ ] Mark todos as complete
+- [ ] Dark mode toggle
+- [ ] Persist todos to localStorage
+
+## Ready Checklist
+- [ ] All features above implemented and working
+- [ ] No console errors
+- [ ] App loads without crashes
+- [ ] Tests pass
+- [ ] README exists with setup instructions
+```
+
+This document is the CONTRACT. QA_ANDREW will verify 100% completion before release.
 
 WORKFLOW:
+- Create DELIVERABLES.md FIRST
 - Assign tasks to ONE member of a pair, they loop with their partner
 - Review work before moving to next phase
 - Team members should NOT work on unassigned tasks
+- When dev/design work is done, hand off to QA_ANDREW for final verification
