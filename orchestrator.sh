@@ -34,6 +34,11 @@ init_workspace() {
 # APPEND ONLY - never edit previous entries
 ---" > "$CHAT_LOG"
     fi
+
+    # Copy tools to workspace
+    if [[ -d "$SCRIPT_DIR/tools" ]]; then
+        cp -r "$SCRIPT_DIR/tools" "$WORKSPACE_DIR/"
+    fi
 }
 
 get_session() {

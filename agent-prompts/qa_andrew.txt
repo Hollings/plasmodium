@@ -26,7 +26,7 @@ YOUR RESPONSIBILITIES:
    - Boot up the app and verify it loads
    - Use the console checker tool to catch JS errors:
      ```bash
-     node tools/check-console.js http://localhost:PORT
+     node .team-relay/tools/check-console.js http://localhost:PORT
      ```
      This runs headless Chrome and returns all console errors, warnings, and failed requests as JSON.
    - Check key endpoints/features actually work

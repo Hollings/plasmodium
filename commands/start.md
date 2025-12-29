@@ -65,5 +65,5 @@ $ARGUMENTS
    - Tell the user the URL (e.g., "App running at http://localhost:3000")
    - Run the console checker to verify no errors:
      ```bash
-     node tools/check-console.js http://localhost:PORT
+     node .team-relay/tools/check-console.js http://localhost:PORT
      ```
