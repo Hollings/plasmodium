@@ -4,44 +4,54 @@ description: Start a new multi-agent relay with the team (CEO, PM, developers, d
 
 # Start Team Relay
 
-Start a new multi-agent relay using the orchestrator script. The relay simulates a software development team where agents hand off work to each other.
+Start a multi-agent relay that runs in the background while you monitor progress.
 
 ## Arguments
 
-The user should provide: `<agent> <task>`
+Format: `[agent] [task description]`
 
-- **agent**: Which team member starts (ceo, pm, dev_john, dev_alice, designer_maya, designer_alex)
-- **task**: The task description for the team
+- **agent** (optional): Starting agent - defaults to `ceo`
+  - Options: ceo, pm, dev_john, dev_alice, designer_maya, designer_alex, qa_andrew
+- **task**: The task for the team to complete
 
 $ARGUMENTS
 
 ## Instructions
 
-1. Parse the arguments to extract the starting agent and task
-2. Run the orchestrator script to start the relay:
+1. **Parse arguments**: Extract the starting agent and task from the arguments. If no agent specified, default to `ceo`.
 
-```bash
-./agents-workspace/orchestrator.sh $ARGUMENTS
-```
+2. **Find the orchestrator**: The orchestrator script is at the plugin directory. Look for it at:
+   - `~/.claude/plugins/cache/local/team-relay/1.0.0/orchestrator.sh`
+   - Or the directory this plugin was loaded from
 
-If the user wants to work on a specific project directory, they can use `--project <dir>`:
+3. **Reset and start the relay in background**:
+   ```bash
+   # Reset first
+   /path/to/orchestrator.sh reset "$(pwd)"
 
-```bash
-./agents-workspace/orchestrator.sh --project /path/to/project <agent> <task>
-```
+   # Start in background, redirect output
+   nohup /path/to/orchestrator.sh start "$(pwd)" <agent> "<task>" > /dev/null 2>&1 &
+   ```
 
-## Available Agents
+4. **Monitor the relay**: While the relay runs, periodically check the logs and summarize what's happening:
+   ```bash
+   # Check if relay is still running
+   pgrep -f "orchestrator.sh start"
 
-| Agent | Role | Model |
-|-------|------|-------|
-| ceo | Vision, direction, delegates to PM | sonnet |
-| pm | Coordination, task breakdown | sonnet |
-| dev_john | Developer, pairs with dev_alice | opus |
-| dev_alice | Developer, pairs with dev_john | opus |
-| designer_maya | Designer, pairs with designer_alex | sonnet |
-| designer_alex | Designer, pairs with designer_maya | sonnet |
+   # Read latest output
+   tail -20 .team-relay/output.log
 
-## Example Usage
+   # Read chat log for team communication
+   cat .team-relay/chat.log
+   ```
 
-- `/team-relay:start ceo Build a todo app with dark mode`
-- `/team-relay:start --project ~/my-app pm Add user authentication`
+5. **Provide updates**: Every few seconds, read the output.log and chat.log and give the user a summary:
+   - Which agent is currently working
+   - What they're doing (from chat.log)
+   - Any handoffs that occurred
+   - When the relay completes (look for "RELAY COMPLETE" in output.log)
+
+6. **On completion**: When the relay finishes, provide a final summary of:
+   - What was accomplished
+   - Files created/modified
+   - The full chat.log conversation

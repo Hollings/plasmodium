@@ -4,37 +4,27 @@ description: Continue an interrupted multi-agent relay from where it left off
 
 # Continue Team Relay
 
-Continue a multi-agent relay that was interrupted. This resumes from the last known state using saved sessions.
+Resume a relay that was interrupted, starting with the specified agent.
 
 ## Arguments
 
-The user should provide: `<agent>`
+Format: `<agent>`
 
-- **agent**: Which team member should continue (ceo, pm, dev_john, dev_alice, designer_maya, designer_alex)
+- **agent**: Which agent should continue (ceo, pm, dev_john, dev_alice, designer_maya, designer_alex, qa_andrew)
 
 $ARGUMENTS
 
 ## Instructions
 
-1. First, show the current state by displaying the last 10 lines of the chat log:
+1. **Check existing state**: Read `.team-relay/chat.log` to show the user what happened before the interruption.
 
-```bash
-tail -10 ./agents-workspace/chat.log
-```
+2. **Find the orchestrator**: Look for it at:
+   - `~/.claude/plugins/cache/local/team-relay/1.0.0/orchestrator.sh`
+   - Or the directory this plugin was loaded from
 
-2. Run the orchestrator in continue mode:
+3. **Continue the relay in background**:
+   ```bash
+   nohup /path/to/orchestrator.sh continue "$(pwd)" <agent> > /dev/null 2>&1 &
+   ```
 
-```bash
-./agents-workspace/orchestrator.sh continue $ARGUMENTS
-```
-
-If working on a specific project:
-
-```bash
-./agents-workspace/orchestrator.sh --project /path/to/project continue <agent>
-```
-
-## Example Usage
-
-- `/team-relay:continue dev_john`
-- `/team-relay:continue pm`
+4. **Monitor and summarize**: Same as start - periodically read output.log and chat.log, provide updates to the user until the relay completes.

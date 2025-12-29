@@ -4,24 +4,29 @@ description: Show the current status of the team relay (chat log and sessions)
 
 # Team Relay Status
 
-View the current state of the multi-agent relay including the communication log and active sessions.
+Show the current state of any running or completed relay.
 
 ## Instructions
 
-1. Show the full chat log:
+1. **Check if relay is running**:
+   ```bash
+   pgrep -f "orchestrator.sh"
+   ```
 
-```bash
-cat ./agents-workspace/chat.log
-```
+2. **Show the workspace state**:
+   ```bash
+   # Output log (orchestrator activity)
+   cat .team-relay/output.log 2>/dev/null || echo "No output log"
 
-2. Show which agents have active sessions:
+   # Chat log (team communication)
+   cat .team-relay/chat.log 2>/dev/null || echo "No chat log"
 
-```bash
-cat ./agents-workspace/.sessions.json
-```
+   # Active sessions
+   cat .team-relay/sessions.json 2>/dev/null || echo "No sessions"
+   ```
 
-3. Summarize:
-   - How many messages are in the chat log
-   - Which agents have been active
-   - What the last handoff was (if any)
-   - Whether there's work in progress or if the relay is complete
+3. **Summarize**:
+   - Is a relay currently running?
+   - How many turns have occurred?
+   - Which agents have participated?
+   - What's the current state (in progress, complete, or no relay)?
