@@ -56,14 +56,35 @@ $ARGUMENTS
    - List files created/modified
    - Show the full chat.log conversation
 
-7. **Start the app**: If the project has a runnable app (web server, API, etc.):
-   - Find an open port (check if 3000, 8080, 5000 are available)
-   - Start the server in the background using the appropriate command:
-     - Node: `npm start` or `node server.js`
-     - Python: `python app.py` or `flask run`
-     - Check package.json, Makefile, or README for start commands
-   - Tell the user the URL (e.g., "App running at http://localhost:3000")
-   - Run the console checker to verify no errors:
+7. **Start all services**: When the relay completes, get the app running - don't ask, just do it:
+
+   **Docker/Compose** (check for docker-compose.yml or compose.yml):
+   ```bash
+   docker compose down 2>/dev/null; docker compose up -d --build
+   ```
+
+   **Node** (check for package.json):
+   ```bash
+   npm install && npm start &
+   ```
+
+   **Python** (check for requirements.txt, app.py, manage.py):
+   ```bash
+   pip install -r requirements.txt 2>/dev/null
+   python app.py &  # or flask run, or python manage.py runserver
+   ```
+
+   **Makefile** (check for Makefile with 'run' or 'start' target):
+   ```bash
+   make run &  # or make start
+   ```
+
+   - Find an open port if needed (3000, 8080, 5000)
+   - Wait for service to be healthy
+   - Tell the user the URL when ready
+   - Run console checker to verify:
      ```bash
      node .team-relay/tools/check-console.js http://localhost:PORT
      ```
+
+   **If something fails**: Fix it or restart it. Don't tell the user to do it manually.
