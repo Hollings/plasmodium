@@ -45,11 +45,24 @@ $ARGUMENTS
    cat .team-relay/chat.log
    ```
 
-5. **Provide updates**: Every few seconds, read the output.log and chat.log and give the user a summary:
-   - Which agent is currently working
-   - What they're doing (from chat.log)
-   - Any handoffs that occurred
-   - When the relay completes (look for "RELAY COMPLETE" in output.log)
+5. **Provide detailed updates**: Every few seconds, read the output.log and chat.log and narrate what's happening with SPECIFICS:
+
+   **BAD** (too vague):
+   - "Maya is working on the design"
+   - "John is writing code"
+   - "The team is making progress"
+
+   **GOOD** (specific details):
+   - "Maya is designing a dark header with a centered logo and hamburger menu on mobile. Alex pushed back saying the hamburger is outdated - they're debating a tab bar instead."
+   - "John wrote a TodoItem component with checkbox, title, and delete button. Alice is reviewing and suggested adding keyboard shortcuts for accessibility."
+   - "QA found 3 console errors: missing favicon, undefined localStorage on first load, and a React key warning in the todo list."
+
+   Include:
+   - Actual design decisions being discussed
+   - Specific code/components being written
+   - Real disagreements or debates between team members
+   - Concrete bugs or issues found
+   - File names and function names when relevant
 
 6. **On completion**: When the relay finishes:
    - Provide a summary of what was accomplished
