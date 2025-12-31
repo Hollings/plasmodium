@@ -1,0 +1,14 @@
+{
+  "name": "team-relay-marketplace",
+  "description": "Claude Team Relay Plugin - Multi-agent development team simulation",
+  "owner": {
+    "name": "Hollings"
+  },
+  "plugins": [
+    {
+      "name": "team-relay",
+      "source": ".",
+      "description": "Simulates a software development team (CEO, PM, devs, designers, QA) that collaborates through a shared chat log"
+    }
+  ]
+}

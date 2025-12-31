@@ -15,22 +15,34 @@ The result is more thorough, well-tested code with better documentation.
 
 ## Installation
 
-### Option 1: Load directly (recommended for development)
+### Option 1: Install from GitHub (recommended)
 
 ```bash
+# Add the marketplace
+/plugin marketplace add https://github.com/Hollings/claude-team-relay-plugin
+
+# Install the plugin (choose user/project/local scope when prompted)
+/plugin install team-relay@team-relay-marketplace
+```
+
+### Option 2: Install from local clone
+
+```bash
+# Clone the repo
 git clone git@github.com:Hollings/claude-team-relay-plugin.git
+
+# Add as local marketplace
+/plugin marketplace add ./claude-team-relay-plugin
+
+# Install
+/plugin install team-relay@team-relay-marketplace
+```
+
+### Option 3: Development mode (temporary, current session only)
+
+```bash
 claude --plugin-dir ./claude-team-relay-plugin
 ```
-
-### Option 2: Add alias for permanent use
-
-Add to `~/.zshrc` or `~/.bashrc`:
-
-```bash
-alias claude='claude --plugin-dir /path/to/claude-team-relay-plugin'
-```
-
-Then restart your terminal or run `source ~/.zshrc`.
 
 ## Usage
 
