@@ -334,9 +334,10 @@ pm_new() {
         pm_signal "created spore $id: $task"
     fi
 
-    # Auto-spawn: if human creates a non-blocked spore, spawn a worker
+    # Auto-spawn: if human creates a non-blocked spore, spawn 2 workers
+    # One claims, one becomes discussion partner. Both exit when idle.
     if [[ "$worker" == "human" && "$status" != "blocked" ]]; then
-        spawn_workers_background 1
+        spawn_workers_background 2
     fi
 
     echo "$id"
