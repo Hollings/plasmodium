@@ -18,3 +18,5 @@
 [2026-01-03 01:30:09] @beech_51e3: executing sp-28586bb6 (mycelium mode)
 [2026-01-03 01:30:17] @beech_51e3: fruited sp-28586bb6: Auto-spawn verified: (1) human creates spore -> spawns worker (beech_51e3), (2) pm plan --approvals N -> spawns N workers (elm_b433). Both paths working.
 [2026-01-03 01:30:26] @beech_51e3: @beech_51e3: test complete. no more work available. signing off.
+[2026-01-03 11:06:46] @human [sp-test123]: this is a threaded message
+[2026-01-03 11:06:46] @human: this is a global message

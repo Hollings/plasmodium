@@ -227,6 +227,43 @@
             padding: 20px;
         }
 
+        /* Signal Filters */
+        .filter-buttons {
+            float: right;
+            display: flex;
+            gap: 5px;
+        }
+
+        .filter-btn {
+            padding: 3px 8px;
+            background: transparent;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #8b949e;
+            font-size: 0.75em;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .filter-btn:hover {
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+
+        .filter-btn.active {
+            background: #21262d;
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+
+        .signal.system {
+            opacity: 0.7;
+        }
+
+        .signal.system .signal-text {
+            color: #6e7681;
+        }
+
         .refresh-info {
             font-size: 0.8em;
             color: #484f58;
@@ -333,7 +370,14 @@
         </div>
 
         <div class="panel signals-panel">
-            <div class="panel-header">Signals</div>
+            <div class="panel-header">
+                Signals
+                <span class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="chat">Chat</button>
+                    <button class="filter-btn" data-filter="system">System</button>
+                </span>
+            </div>
             <div class="panel-content" id="signals">
                 <div class="empty-state">Loading...</div>
             </div>
@@ -435,12 +479,20 @@
                 }
             }
 
-            // Sort: active workers first, then idle (sorted by most recently active)
-            const workerEntries = Object.entries(workers.workers).sort((a, b) => {
-                const aIdle = a[1].status === 'idle';
-                const bIdle = b[1].status === 'idle';
-                if (aIdle !== bIdle) return aIdle ? 1 : -1;
-                // Both same status, sort by lastActive descending
+            // Filter out exited/finished workers, only show active ones
+            const activeWorkers = Object.entries(workers.workers)
+                .filter(([_, info]) => info.status !== 'exited' && info.status !== 'done');
+
+            if (activeWorkers.length === 0) {
+                container.innerHTML = '<div class="empty-state">No workers active</div>';
+                return;
+            }
+
+            // Sort: working > exploring > idle
+            const workerEntries = activeWorkers.sort((a, b) => {
+                const aTask = workerTasks.has(a[0]);
+                const bTask = workerTasks.has(b[0]);
+                if (aTask !== bTask) return aTask ? -1 : 1;
                 const aTime = a[1].lastActive || a[1].started || '';
                 const bTime = b[1].lastActive || b[1].started || '';
                 return bTime.localeCompare(aTime);
@@ -462,16 +514,30 @@
             }).join('');
         }
 
+        let signalFilter = 'all';
+        const systemKeywords = ['claimed', 'spawning', 'exploring', 'executing', 'fruited', 'PLAN for', 'APPROVED', 'REJECTED', 'created spore', 'nothing to do', 'exiting'];
+
+        function isSystemSignal(text) {
+            return systemKeywords.some(kw => text.includes(kw));
+        }
+
         function renderSignals(signals) {
             const container = document.getElementById('signals');
 
-            if (signals.length === 0) {
+            let filtered = signals;
+            if (signalFilter === 'chat') {
+                filtered = signals.filter(s => !isSystemSignal(s.text));
+            } else if (signalFilter === 'system') {
+                filtered = signals.filter(s => isSystemSignal(s.text));
+            }
+
+            if (filtered.length === 0) {
                 container.innerHTML = '<div class="empty-state">No signals yet</div>';
                 return;
             }
 
-            container.innerHTML = signals.slice(0, 50).map(s => `
-                <div class="signal">
+            container.innerHTML = filtered.slice(0, 50).map(s => `
+                <div class="signal ${isSystemSignal(s.text) ? 'system' : 'chat'}">
                     <span class="signal-time">${formatTime(s.time)}</span>
                     <span class="signal-worker">@${s.worker}</span>
                     <span class="signal-text">${escapeHtml(s.text)}</span>
@@ -488,8 +554,16 @@
             }
 
             const sorted = [...spores].sort((a, b) => {
-                const order = { executing: 0, exploring: 1, raw: 2, done: 3 };
-                return (order[a.status] ?? 4) - (order[b.status] ?? 4);
+                const order = {
+                    executing: 0,
+                    approved: 1,
+                    pending_approval: 2,
+                    exploring: 3,
+                    raw: 4,
+                    done: 5,
+                    blocked: 6
+                };
+                return (order[a.status] ?? 7) - (order[b.status] ?? 7);
             });
 
             container.innerHTML = sorted.map(s => `
@@ -540,6 +614,16 @@
 
         refresh();
         setInterval(refresh, 2000);
+
+        // Signal filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                signalFilter = btn.dataset.filter;
+                refresh();
+            });
+        });
 
         // Task submission form
         const form = document.getElementById('task-form');
