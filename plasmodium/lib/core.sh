@@ -111,9 +111,30 @@ pm_signals() {
 # ============================================
 
 pm_new() {
-    local task="$*"
+    local depends_on=()
+    local task=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --depends)
+                shift
+                depends_on+=("$1")
+                shift
+                ;;
+            *)
+                if [[ -z "$task" ]]; then
+                    task="$1"
+                else
+                    task="$task $1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
     if [[ -z "$task" ]]; then
-        echo "Usage: pm new <task description>" >&2
+        echo "Usage: pm new [--depends <spore-id>]... <task description>" >&2
         exit 1
     fi
 
@@ -122,26 +143,69 @@ pm_new() {
     local worker=$(get_worker_name)
     local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
+    # Determine initial status based on dependencies
+    local status="raw"
+    if [[ ${#depends_on[@]} -gt 0 ]]; then
+        # Check if all dependencies are already done
+        local all_done=true
+        for dep_id in "${depends_on[@]}"; do
+            local dep_spore=$(get_spore "$dep_id")
+            if [[ -n "$dep_spore" ]]; then
+                local dep_status=$(echo "$dep_spore" | jq -r '.status')
+                if [[ "$dep_status" != "done" ]]; then
+                    all_done=false
+                    break
+                fi
+            else
+                # Dependency doesn't exist yet - block
+                all_done=false
+                break
+            fi
+        done
+        if ! $all_done; then
+            status="blocked"
+        fi
+    fi
+
+    local depends_json=$(printf '%s\n' "${depends_on[@]}" | jq -R . | jq -s . 2>/dev/null || echo "[]")
+
     local spore=$(jq -nc \
         --arg id "$id" \
         --arg task "$task" \
         --arg created "$timestamp" \
         --arg creator "$worker" \
+        --arg status "$status" \
+        --argjson depends "$depends_json" \
         '{
             id: $id,
+            type: "task",
             parent: null,
             children: [],
-            status: "raw",
+            depends_on: $depends,
+            status: $status,
             phase: null,
             task: $task,
             claimed_by: null,
             fruit: null,
+            plan_file: null,
+            approvals_needed: 0,
+            approvals: [],
+            rejections: [],
             created: $created,
             creator: $creator
         }')
 
     echo "$spore" >> "$spores"
-    pm_signal "created spore $id: $task"
+
+    if [[ ${#depends_on[@]} -gt 0 ]]; then
+        if [[ "$status" == "blocked" ]]; then
+            pm_signal "created spore $id (blocked by ${depends_on[*]}): $task"
+        else
+            pm_signal "created spore $id (depends on ${depends_on[*]}, ready): $task"
+        fi
+    else
+        pm_signal "created spore $id: $task"
+    fi
     echo "$id"
 }
 
@@ -290,6 +354,9 @@ pm_fruit() {
         exit 1
     fi
 
+    # Run pre-fruit gates
+    run_gates "pre-fruit" "$id" || { echo "gates failed" >&2; return 1; }
+
     local spores=$(get_spores_file)
     local spore=$(get_spore "$id")
     local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -308,7 +375,46 @@ pm_fruit() {
         pm_ripen "$parent" 2>/dev/null || true
     fi
 
+    # Unblock any spores that depend on this one
+    unblock_dependents "$id"
+
+    # Run post-fruit gates
+    run_gates "post-fruit" "$id" || true
+
     echo "fruited $id"
+}
+
+# Unblock spores that were waiting on this one
+unblock_dependents() {
+    local completed_id="$1"
+    local spores=$(get_spores_file)
+
+    # Find all blocked spores that depend on completed_id
+    jq -rsc --arg dep "$completed_id" '
+        group_by(.id) | map(last) | .[] |
+        select(.status == "blocked" and (.depends_on | index($dep)))
+    ' "$spores" 2>/dev/null | while read -r spore; do
+        [[ -z "$spore" ]] && continue
+
+        local blocked_id=$(echo "$spore" | jq -r '.id')
+        local depends=$(echo "$spore" | jq -r '.depends_on[]' 2>/dev/null)
+
+        # Check if ALL dependencies are now done
+        local all_done=true
+        for dep_id in $depends; do
+            local dep_spore=$(get_spore "$dep_id")
+            local dep_status=$(echo "$dep_spore" | jq -r '.status')
+            if [[ "$dep_status" != "done" ]]; then
+                all_done=false
+                break
+            fi
+        done
+
+        if $all_done; then
+            update_spore "$blocked_id" "status" "raw"
+            pm_signal "$blocked_id unblocked (dependencies complete)"
+        fi
+    done
 }
 
 pm_ripen() {
@@ -425,4 +531,239 @@ pm_status() {
 
     echo "RECENT SIGNALS:"
     tail -5 "$(get_signal_log)" | grep -v "^#" | grep -v "^---"
+}
+
+# ============================================
+# GATES (HOOKS)
+# ============================================
+
+run_gates() {
+    local phase="$1"  # pre-execute, pre-fruit, post-fruit
+    local spore_id="$2"
+
+    local pm_dir=$(get_pm_dir)
+    local gates_dir="$pm_dir/gates/$phase"
+
+    if [[ ! -d "$gates_dir" ]]; then
+        return 0  # No gates for this phase
+    fi
+
+    for gate in "$gates_dir"/*.sh; do
+        [[ -f "$gate" ]] || continue
+        local gate_name=$(basename "$gate")
+
+        if ! bash "$gate" "$spore_id" 2>&1; then
+            pm_signal "GATE FAILED: $gate_name for $spore_id"
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+# ============================================
+# PLAN & APPROVAL
+# ============================================
+
+get_docs_dir() {
+    echo "$(get_pm_dir)/docs"
+}
+
+pm_plan() {
+    local approvals=1
+    local spore_id=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --approvals)
+                shift
+                approvals="$1"
+                shift
+                ;;
+            *)
+                spore_id="$1"
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$spore_id" ]]; then
+        echo "Usage: pm plan <spore-id> [--approvals N]" >&2
+        exit 1
+    fi
+
+    local spore=$(get_spore "$spore_id")
+    if [[ -z "$spore" ]]; then
+        echo "Spore not found: $spore_id" >&2
+        exit 1
+    fi
+
+    local docs_dir=$(get_docs_dir)
+    local spore_docs="$docs_dir/$spore_id"
+    local plan_file="$spore_docs/plan.md"
+
+    # Create docs directory
+    mkdir -p "$spore_docs"
+
+    # Create plan template if it doesn't exist
+    if [[ ! -f "$plan_file" ]]; then
+        local task=$(echo "$spore" | jq -r '.task')
+        cat > "$plan_file" << EOF
+# Plan for $spore_id
+
+## Task
+$task
+
+## Approach
+[Describe your approach here]
+
+## Changes
+[List the files/components you'll modify]
+
+## Risks
+[Any risks or concerns]
+
+## Testing
+[How will you verify this works]
+EOF
+        echo "Created plan template: $plan_file"
+        echo "Edit the plan, then run: pm plan $spore_id --approvals $approvals"
+        return 0
+    fi
+
+    # Update spore with plan info and create review spore
+    local spores=$(get_spores_file)
+    local updated=$(echo "$spore" | jq -c \
+        --arg plan "docs/$spore_id/plan.md" \
+        --argjson approvals "$approvals" \
+        '.plan_file = $plan | .approvals_needed = $approvals | .status = "pending_approval"')
+    echo "$updated" >> "$spores"
+
+    # Create review spore
+    local review_id=$(gen_id)
+    local worker=$(get_worker_name)
+    local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    local task=$(echo "$spore" | jq -r '.task')
+
+    local review=$(jq -nc \
+        --arg id "$review_id" \
+        --arg reviews "$spore_id" \
+        --arg task "review plan for $spore_id: $task" \
+        --arg created "$timestamp" \
+        --arg creator "$worker" \
+        '{
+            id: $id,
+            type: "review",
+            reviews: $reviews,
+            parent: null,
+            children: [],
+            depends_on: [],
+            status: "raw",
+            phase: null,
+            task: $task,
+            claimed_by: null,
+            fruit: null,
+            plan_file: null,
+            approvals_needed: 0,
+            approvals: [],
+            rejections: [],
+            created: $created,
+            creator: $creator
+        }')
+    echo "$review" >> "$spores"
+
+    pm_signal "PLAN for $spore_id needs $approvals approval(s). Review: $review_id. Plan: $plan_file"
+    echo "Plan submitted. Review spore: $review_id"
+    echo "Waiting for $approvals approval(s)"
+}
+
+pm_approve() {
+    local spore_id="$1"
+    shift
+    local reason="$*"
+
+    if [[ -z "$spore_id" ]]; then
+        echo "Usage: pm approve <spore-id> [reason]" >&2
+        exit 1
+    fi
+
+    local spore=$(get_spore "$spore_id")
+    if [[ -z "$spore" ]]; then
+        echo "Spore not found: $spore_id" >&2
+        exit 1
+    fi
+
+    local worker=$(get_worker_name)
+    local spores=$(get_spores_file)
+
+    # Add approval
+    local current_approvals=$(echo "$spore" | jq -r '.approvals | length')
+    local needed=$(echo "$spore" | jq -r '.approvals_needed')
+
+    local updated=$(echo "$spore" | jq -c --arg w "$worker" '.approvals += [$w]')
+    echo "$updated" >> "$spores"
+
+    local new_count=$((current_approvals + 1))
+    pm_signal "APPROVED $spore_id ($new_count/$needed): $reason"
+
+    # Check if we have enough approvals
+    if [[ $new_count -ge $needed ]]; then
+        update_spore "$spore_id" "status" "approved"
+        pm_signal "$spore_id fully approved - ready to execute"
+    fi
+
+    # Find and fruit the review spore
+    local review_spore=$(jq -rsc --arg reviews "$spore_id" '
+        group_by(.id) | map(last) | .[] |
+        select(.type == "review" and .reviews == $reviews and .status != "done")
+    ' "$spores" | head -1)
+
+    if [[ -n "$review_spore" ]]; then
+        local review_id=$(echo "$review_spore" | jq -r '.id')
+        # Mark review as claimed by this worker and fruit it
+        update_spore "$review_id" "claimed_by" "$worker"
+        local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+        local review_updated=$(echo "$review_spore" | jq -c \
+            --arg fruit "approved by @$worker: $reason" \
+            --arg time "$timestamp" \
+            --arg claimed "$worker" \
+            '.status = "done" | .phase = null | .fruit = $fruit | .completed = $time | .claimed_by = $claimed')
+        echo "$review_updated" >> "$spores"
+    fi
+
+    echo "approved $spore_id"
+}
+
+pm_reject() {
+    local spore_id="$1"
+    shift
+    local reason="$*"
+
+    if [[ -z "$spore_id" ]]; then
+        echo "Usage: pm reject <spore-id> <reason>" >&2
+        exit 1
+    fi
+
+    if [[ -z "$reason" ]]; then
+        echo "Rejection reason required" >&2
+        exit 1
+    fi
+
+    local spore=$(get_spore "$spore_id")
+    if [[ -z "$spore" ]]; then
+        echo "Spore not found: $spore_id" >&2
+        exit 1
+    fi
+
+    local worker=$(get_worker_name)
+    local spores=$(get_spores_file)
+
+    # Add rejection
+    local rejection=$(jq -nc --arg w "$worker" --arg r "$reason" '{worker: $w, reason: $r}')
+    local updated=$(echo "$spore" | jq -c --argjson rej "$rejection" '.rejections += [$rej] | .status = "rejected"')
+    echo "$updated" >> "$spores"
+
+    pm_signal "REJECTED $spore_id by @$worker: $reason"
+    echo "rejected $spore_id - author must revise plan"
 }

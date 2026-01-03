@@ -51,6 +51,20 @@ case "${1:-}" in
         pm_ripen "$@"
         ;;
 
+    # Plan & approval commands
+    plan)
+        shift
+        pm_plan "$@"
+        ;;
+    approve)
+        shift
+        pm_approve "$@"
+        ;;
+    reject)
+        shift
+        pm_reject "$@"
+        ;;
+
     # Worker commands
     spawn)
         shift
@@ -82,10 +96,15 @@ case "${1:-}" in
         echo "  fruit <id> <output> Complete work with output"
         echo ""
         echo "Work:"
-        echo "  new <task>          Create new spore"
-        echo "  claim <id>          Claim a spore"
-        echo "  split <id>          Split spore into sub-spores"
-        echo "  ripen <id>          Check if children done, bubble up"
+        echo "  new [--depends id] <task>  Create new spore"
+        echo "  claim <id>                 Claim a spore"
+        echo "  split <id> <tasks...>      Split spore into sub-spores"
+        echo "  ripen <id>                 Check if children done, bubble up"
+        echo ""
+        echo "Plan & Approval:"
+        echo "  plan <id> [--approvals N]  Submit plan for review"
+        echo "  approve <id> [reason]      Approve a plan"
+        echo "  reject <id> <reason>       Reject a plan"
         echo ""
         echo "Workers:"
         echo "  spawn [name]        Start new worker"
