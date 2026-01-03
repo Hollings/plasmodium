@@ -11,95 +11,24 @@ Slime mold + fungi lifecycle:
 
 ## Current State (implemented)
 
-- `pm` CLI with: new, claim, explore, execute, split, fruit, ripen, signal, signals, status, spawn
+- `pm` CLI with: new, claim, explore, execute, split, fruit, ripen, signal, signals, status, spawn, plan, approve, reject
 - Workers are Claude Code instances with `--dangerously-skip-permissions`
 - Spores stored in `.plasmodium/spores.jsonl` (append-only, last wins)
 - Signals stored in `.plasmodium/signals.log`
 - Workers stored in `.plasmodium/workers.json`
 - Dashboard at `.plasmodium/dashboard.html` with server.py for task submission
 - Parent/child spores with auto-ripening when children complete
+- **Dependencies**: `pm new --depends sp-xxx` creates blocked spores that auto-unblock
+- **Plan/Approval**: Workers must get plans approved before executing
+- **Review spores**: Reviews are spores themselves (type: "review")
+- **Auto-spawn**: Hook-based spawning when work is created:
+  - Human creates spore → spawns 1 worker
+  - `pm plan --approvals N` → spawns N workers for review
+- Worker logs in `.plasmodium/logs/`
 
-## Planned Features
+## Remaining Features
 
-### 1. Dependencies (`depends_on`)
-
-Spores can depend on other spores:
-```json
-{
-  "id": "sp-test",
-  "task": "test the feature",
-  "depends_on": ["sp-implement"],
-  "status": "blocked"
-}
-```
-
-- When sp-implement fruits → sp-test becomes "raw" (claimable)
-- `pm new --depends sp-xxx "task"` to create with dependency
-- `pm status` shows blocked spores differently
-
-### 2. Docs Folder
-
-Spores can have associated documents:
-```
-.plasmodium/
-└── docs/
-    └── sp-abc/
-        ├── plan.md           # design document
-        └── reviews/
-            └── maple.md      # reviewer feedback
-```
-
-Spore gets `plan_file` field pointing to its plan doc.
-
-### 3. Plan & Approval System
-
-Before executing, workers must get their plan approved:
-
-```bash
-pm plan sp-xxx --approvals 2
-# → Worker writes docs/sp-xxx/plan.md
-# → Creates review spore sp-xxx-r1
-# → sp-xxx status becomes "pending_approval"
-```
-
-Spore structure additions:
-```json
-{
-  "approvals_needed": 2,
-  "approvals": ["@maple"],
-  "rejections": []
-}
-```
-
-### 4. Review Spores
-
-Reviews are spores themselves:
-```json
-{
-  "id": "sp-abc-r1",
-  "type": "review",
-  "reviews": "sp-abc",
-  "task": "review plan for sp-abc",
-  "status": "raw"
-}
-```
-
-Workers prioritize reviews (they unblock other workers).
-
-### 5. Approve/Reject Commands
-
-```bash
-pm approve sp-xxx "looks good"
-# → Adds worker to sp-xxx.approvals
-# → Fruits the review spore
-# → If approvals >= approvals_needed, unblocks sp-xxx
-
-pm reject sp-xxx "needs changes because X"
-# → Adds to sp-xxx.rejections
-# → Worker must revise plan
-```
-
-### 6. Gates (Hooks)
+### Gates (Hooks)
 
 Shell scripts that run at lifecycle points:
 ```
