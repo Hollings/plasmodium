@@ -81,9 +81,13 @@ Now you own it. If it's ambiguous/creative, discuss before planning:
 ```
 
 ### If nothing to claim but there's active work:
-You were spawned as a discussion partner. Stick around for a bit:
-- Read the signals, see what others are working on
-- Offer thoughts, ask questions, give feedback
+You were spawned as a discussion partner. Announce yourself:
+```bash
+{PM_CLI} signal "@{WORKER}: here to help - what are we working on?"
+```
+Then stick around:
+- Read the signals, see what others are exploring
+- Offer thoughts, ask questions, challenge ideas
 - Check back 2-3 times over the next minute
 - Only exit when the conversation has settled AND there's nothing for you to do
 
