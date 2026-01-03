@@ -391,7 +391,20 @@ pm_claim() {
         exit 1
     fi
 
+    local spore=$(get_spore "$id")
+    if [[ -z "$spore" ]]; then
+        echo "Spore not found: $id" >&2
+        exit 1
+    fi
+
+    local current_owner=$(echo "$spore" | jq -r '.claimed_by // empty')
     local worker=$(get_worker_name)
+
+    if [[ -n "$current_owner" && "$current_owner" != "$worker" ]]; then
+        echo "Already claimed by @$current_owner" >&2
+        exit 1
+    fi
+
     update_spore "$id" "claimed_by" "$worker"
     pm_signal "claimed $id"
     echo "claimed $id"
@@ -654,10 +667,13 @@ _spawn_worker() {
 # Spawn worker(s) in background - used by hooks
 spawn_workers_background() {
     local count="${1:-1}"
-    for ((i=0; i<count; i++)); do
-        local name=$(gen_worker_name)
-        _spawn_worker "$name" true
-    done
+    # Run entire spawn in background so pm new returns immediately
+    (
+        for ((i=0; i<count; i++)); do
+            local name=$(gen_worker_name)
+            _spawn_worker "$name" true
+        done
+    ) &>/dev/null &
 }
 
 pm_spawn() {
