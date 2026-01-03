@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plasmodium Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            color: #58a6ff;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #238636;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            height: calc(100vh - 100px);
+        }
+
+        .panel {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 12px 15px;
+            background: #21262d;
+            border-bottom: 1px solid #30363d;
+            font-weight: bold;
+            font-size: 0.9em;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .panel-content {
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Workers Panel */
+        .workers-panel {
+            grid-column: 1 / -1;
+        }
+
+        .workers-list {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .worker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            background: #21262d;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+        }
+
+        .worker-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .worker-status.active { background: #238636; }
+        .worker-status.idle { background: #8b949e; }
+
+        .worker-name {
+            color: #58a6ff;
+            font-weight: bold;
+        }
+
+        .worker-task {
+            color: #8b949e;
+            font-size: 0.85em;
+        }
+
+        /* Signals Panel */
+        .signals-panel {
+            grid-row: 2;
+        }
+
+        .signal {
+            padding: 8px 0;
+            border-bottom: 1px solid #21262d;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .signal:last-child {
+            border-bottom: none;
+        }
+
+        .signal-time {
+            color: #484f58;
+            margin-right: 8px;
+        }
+
+        .signal-worker {
+            color: #f0883e;
+            font-weight: bold;
+        }
+
+        .signal-text {
+            color: #c9d1d9;
+        }
+
+        /* Spores Panel */
+        .spores-panel {
+            grid-row: 2;
+        }
+
+        .spore {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #21262d;
+            border-radius: 6px;
+            border-left: 3px solid #30363d;
+        }
+
+        .spore.status-raw { border-left-color: #8b949e; }
+        .spore.status-exploring { border-left-color: #a371f7; }
+        .spore.status-executing { border-left-color: #f0883e; }
+        .spore.status-done { border-left-color: #238636; }
+
+        .spore-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .spore-id {
+            font-size: 0.8em;
+            color: #58a6ff;
+        }
+
+        .spore-status {
+            font-size: 0.75em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+
+        .spore-status.raw { background: #30363d; color: #8b949e; }
+        .spore-status.exploring { background: #3d2a5c; color: #a371f7; }
+        .spore-status.executing { background: #5c3d1e; color: #f0883e; }
+        .spore-status.done { background: #1c4428; color: #3fb950; }
+
+        .spore-task {
+            font-size: 0.9em;
+            margin-bottom: 6px;
+        }
+
+        .spore-meta {
+            font-size: 0.8em;
+            color: #6e7681;
+        }
+
+        .spore-fruit {
+            margin-top: 8px;
+            padding: 8px;
+            background: #1c4428;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #3fb950;
+        }
+
+        .empty-state {
+            color: #484f58;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .refresh-info {
+            font-size: 0.8em;
+            color: #484f58;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="status-dot"></div>
+        <h1>Plasmodium Network</h1>
+        <span class="refresh-info">Auto-refreshes every 2s</span>
+    </div>
+
+    <div class="grid">
+        <div class="panel workers-panel">
+            <div class="panel-header">Workers</div>
+            <div class="panel-content">
+                <div id="workers" class="workers-list">
+                    <div class="empty-state">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel signals-panel">
+            <div class="panel-header">Signals</div>
+            <div class="panel-content" id="signals">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+
+        <div class="panel spores-panel">
+            <div class="panel-header">Spores</div>
+            <div class="panel-content" id="spores">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_PATH = '.';
+
+        async function fetchText(path) {
+            try {
+                const res = await fetch(`${BASE_PATH}/${path}?t=${Date.now()}`);
+                return await res.text();
+            } catch (e) {
+                console.error(`Failed to fetch ${path}:`, e);
+                return null;
+            }
+        }
+
+        async function fetchJson(path) {
+            const text = await fetchText(path);
+            if (!text) return null;
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function parseSpores(text) {
+            if (!text) return [];
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const sporesById = new Map();
+
+            for (const line of lines) {
+                try {
+                    const spore = JSON.parse(line);
+                    sporesById.set(spore.id, spore);
+                } catch (e) {}
+            }
+
+            return Array.from(sporesById.values());
+        }
+
+        function parseSignals(text) {
+            if (!text) return [];
+            const lines = text.trim().split('\n');
+            const signals = [];
+
+            for (const line of lines) {
+                if (line.startsWith('#') || line.startsWith('---') || !line.trim()) continue;
+
+                const match = line.match(/^\[([^\]]+)\]\s+@(\w+):\s+(.+)$/);
+                if (match) {
+                    signals.push({
+                        time: match[1],
+                        worker: match[2],
+                        text: match[3]
+                    });
+                }
+            }
+
+            return signals.reverse();
+        }
+
+        function renderWorkers(workers, spores) {
+            const container = document.getElementById('workers');
+
+            if (!workers || !workers.workers || Object.keys(workers.workers).length === 0) {
+                container.innerHTML = '<div class="empty-state">No workers active</div>';
+                return;
+            }
+
+            const activeSpores = spores.filter(s => s.status === 'executing' || s.status === 'exploring');
+            const workerTasks = new Map();
+            for (const spore of activeSpores) {
+                if (spore.claimed_by) {
+                    workerTasks.set(spore.claimed_by, spore.task);
+                }
+            }
+
+            container.innerHTML = Object.entries(workers.workers).map(([name, info]) => {
+                const task = workerTasks.get(name);
+                const status = info.status || 'active';
+                return `
+                    <div class="worker">
+                        <div class="worker-status ${status}"></div>
+                        <span class="worker-name">@${name}</span>
+                        ${task ? `<span class="worker-task">${truncate(task, 50)}</span>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderSignals(signals) {
+            const container = document.getElementById('signals');
+
+            if (signals.length === 0) {
+                container.innerHTML = '<div class="empty-state">No signals yet</div>';
+                return;
+            }
+
+            container.innerHTML = signals.slice(0, 50).map(s => `
+                <div class="signal">
+                    <span class="signal-time">${formatTime(s.time)}</span>
+                    <span class="signal-worker">@${s.worker}</span>
+                    <span class="signal-text">${escapeHtml(s.text)}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderSpores(spores) {
+            const container = document.getElementById('spores');
+
+            if (spores.length === 0) {
+                container.innerHTML = '<div class="empty-state">No spores yet</div>';
+                return;
+            }
+
+            const sorted = [...spores].sort((a, b) => {
+                const order = { executing: 0, exploring: 1, raw: 2, done: 3 };
+                return (order[a.status] ?? 4) - (order[b.status] ?? 4);
+            });
+
+            container.innerHTML = sorted.map(s => `
+                <div class="spore status-${s.status}">
+                    <div class="spore-header">
+                        <span class="spore-id">${s.id}</span>
+                        <span class="spore-status ${s.status}">${s.status}</span>
+                    </div>
+                    <div class="spore-task">${escapeHtml(s.task)}</div>
+                    <div class="spore-meta">
+                        ${s.claimed_by ? `@${s.claimed_by}` : 'unclaimed'}
+                        ${s.phase ? ` · ${s.phase}` : ''}
+                    </div>
+                    ${s.fruit ? `<div class="spore-fruit">${escapeHtml(s.fruit)}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function formatTime(timeStr) {
+            const parts = timeStr.split(' ');
+            return parts[1] || timeStr;
+        }
+
+        function truncate(str, len) {
+            return str.length > len ? str.slice(0, len) + '...' : str;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        async function refresh() {
+            const [workersData, sporesText, signalsText] = await Promise.all([
+                fetchJson('workers.json'),
+                fetchText('spores.jsonl'),
+                fetchText('signals.log')
+            ]);
+
+            const spores = parseSpores(sporesText);
+            const signals = parseSignals(signalsText);
+
+            renderWorkers(workersData, spores);
+            renderSignals(signals);
+            renderSpores(spores);
+        }
+
+        refresh();
+        setInterval(refresh, 2000);
+    </script>
+</body>
+</html>

@@ -3,6 +3,10 @@
     "oak": {
       "started": "2026-01-03T08:20:28Z",
       "status": "active"
+    },
+    "maple": {
+      "started": "2026-01-03T08:23:06Z",
+      "status": "active"
     }
   }
 }
