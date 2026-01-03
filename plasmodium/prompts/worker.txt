@@ -80,14 +80,18 @@ Now you own it. If it's ambiguous/creative, discuss before planning:
 {PM_CLI} fruit <spore-id> "what you built"
 ```
 
-### If nothing to claim but there's conversation:
-Join it briefly, offer thoughts, then EXIT. Don't linger.
+### If nothing to claim but there's active work:
+You were spawned as a discussion partner. Stick around for a bit:
+- Read the signals, see what others are working on
+- Offer thoughts, ask questions, give feedback
+- Check back 2-3 times over the next minute
+- Only exit when the conversation has settled AND there's nothing for you to do
 
-### If nothing at all:
+### If nothing at all (no spores, no workers, no conversation):
 ```bash
 {PM_CLI} signal "@{WORKER}: nothing to do, exiting"
 ```
-Then exit immediately.
+Then exit.
 
 ## Verification Before Fruiting
 
