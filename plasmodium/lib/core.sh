@@ -53,26 +53,65 @@ gen_id() {
 
 pm_init() {
     local dir="${1:-.}"
-    mkdir -p "$dir/.plasmodium"
+    local pm_dir="$dir/.plasmodium"
+
+    # Convert to absolute path
+    dir="$(cd "$dir" 2>/dev/null && pwd)" || { echo "Directory not found: $1" >&2; exit 1; }
+    pm_dir="$dir/.plasmodium"
+
+    mkdir -p "$pm_dir"
+    mkdir -p "$pm_dir/logs"
+    mkdir -p "$pm_dir/docs"
+    mkdir -p "$pm_dir/gates/pre-execute"
+    mkdir -p "$pm_dir/gates/pre-fruit"
+    mkdir -p "$pm_dir/gates/post-fruit"
 
     # Initialize signal log
-    if [[ ! -f "$dir/.plasmodium/signals.log" ]]; then
-        echo "# Plasmodium Signal Log" > "$dir/.plasmodium/signals.log"
-        echo "# Workers communicate here" >> "$dir/.plasmodium/signals.log"
-        echo "---" >> "$dir/.plasmodium/signals.log"
+    if [[ ! -f "$pm_dir/signals.log" ]]; then
+        echo "# Plasmodium Signal Log" > "$pm_dir/signals.log"
+        echo "# Workers communicate here" >> "$pm_dir/signals.log"
+        echo "---" >> "$pm_dir/signals.log"
     fi
 
     # Initialize spores file
-    if [[ ! -f "$dir/.plasmodium/spores.jsonl" ]]; then
-        touch "$dir/.plasmodium/spores.jsonl"
+    if [[ ! -f "$pm_dir/spores.jsonl" ]]; then
+        touch "$pm_dir/spores.jsonl"
     fi
 
     # Initialize workers file
-    if [[ ! -f "$dir/.plasmodium/workers.json" ]]; then
-        echo '{"workers": {}}' > "$dir/.plasmodium/workers.json"
+    if [[ ! -f "$pm_dir/workers.json" ]]; then
+        echo '{"workers": {}}' > "$pm_dir/workers.json"
     fi
 
-    echo "Initialized plasmodium in $dir/.plasmodium/"
+    # Copy dashboard files from plasmodium source
+    if [[ -f "$PM_SCRIPT_DIR/dashboard/index.html" ]]; then
+        cp "$PM_SCRIPT_DIR/dashboard/index.html" "$pm_dir/dashboard.html"
+        cp "$PM_SCRIPT_DIR/dashboard/server.py" "$pm_dir/server.py"
+    fi
+
+    echo "Initialized plasmodium in $pm_dir/"
+    echo ""
+    echo "Next steps:"
+    echo "  cd $dir"
+    echo "  pm dashboard     # start the dashboard"
+    echo "  pm new \"task\"    # create work"
+}
+
+pm_dashboard() {
+    local pm_dir=$(get_pm_dir)
+    local port="${1:-3456}"
+
+    if [[ ! -f "$pm_dir/server.py" ]]; then
+        echo "Dashboard not found. Run 'pm init' first." >&2
+        exit 1
+    fi
+
+    echo "Starting dashboard at http://localhost:$port"
+    echo "Press Ctrl+C to stop"
+    echo ""
+
+    cd "$pm_dir"
+    python3 server.py "$port"
 }
 
 # ============================================

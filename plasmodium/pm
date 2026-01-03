@@ -75,10 +75,14 @@ case "${1:-}" in
         pm_status "$@"
         ;;
 
-    # Init
+    # Setup commands
     init)
         shift
         pm_init "$@"
+        ;;
+    dashboard)
+        shift
+        pm_dashboard "$@"
         ;;
 
     *)
@@ -86,32 +90,32 @@ case "${1:-}" in
         echo ""
         echo "Usage: pm <command> [args...]"
         echo ""
-        echo "Signals:"
-        echo "  signal <msg>        Emit to signal log"
-        echo "  signals [--follow]  Read signal log"
-        echo ""
-        echo "Phases:"
-        echo "  explore <id>        Enter plasmodium mode (exploration)"
-        echo "  execute <id>        Enter mycelium mode (execution)"
-        echo "  fruit <id> <output> Complete work with output"
+        echo "Setup:"
+        echo "  init [path]         Initialize plasmodium in a project"
+        echo "  dashboard [port]    Start the dashboard (default: 3456)"
         echo ""
         echo "Work:"
-        echo "  new [--depends id] <task>  Create new spore"
+        echo "  new [--depends id] <task>  Create new spore (auto-spawns worker)"
         echo "  claim <id>                 Claim a spore"
         echo "  split <id> <tasks...>      Split spore into sub-spores"
-        echo "  ripen <id>                 Check if children done, bubble up"
         echo ""
         echo "Plan & Approval:"
         echo "  plan <id> [--approvals N]  Submit plan for review"
         echo "  approve <id> [reason]      Approve a plan"
         echo "  reject <id> <reason>       Reject a plan"
         echo ""
-        echo "Workers:"
-        echo "  spawn [name]        Start new worker"
-        echo "  status              Show colony status"
+        echo "Phases:"
+        echo "  explore <id>        Enter plasmodium mode (exploration)"
+        echo "  execute <id>        Enter mycelium mode (execution)"
+        echo "  fruit <id> <output> Complete work with output"
         echo ""
-        echo "Setup:"
-        echo "  init                Initialize plasmodium in current dir"
+        echo "Signals:"
+        echo "  signal <msg>        Emit to signal log"
+        echo "  signals [--follow]  Read signal log"
+        echo ""
+        echo "Workers:"
+        echo "  spawn [name]        Start new worker (usually auto)"
+        echo "  status              Show colony status"
         exit 1
         ;;
 esac

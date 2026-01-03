@@ -9,12 +9,12 @@ Run from the project root: python3 .plasmodium/server.py
 import http.server
 import json
 import os
-import hashlib
 import re
-from datetime import datetime, timezone
+import subprocess
+import sys
 from urllib.parse import parse_qs
 
-PORT = 8765
+DEFAULT_PORT = 3456
 PLASMODIUM_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class PlasmodiumHandler(http.server.SimpleHTTPRequestHandler):
@@ -98,53 +98,49 @@ class PlasmodiumHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(400, 'Task description required')
             return
 
-        # Generate spore ID
-        now = datetime.now(timezone.utc)
-        hash_input = f"{task}{now.isoformat()}"
-        spore_id = f"sp-{hashlib.sha256(hash_input.encode()).hexdigest()[:8]}"
+        # Find pm script - go up from .plasmodium to project root
+        project_root = os.path.dirname(PLASMODIUM_DIR)
 
-        # Create spore entry
-        spore = {
-            "id": spore_id,
-            "parent": None,
-            "children": [],
-            "status": "raw",
-            "phase": None,
-            "task": task,
-            "claimed_by": None,
-            "fruit": None,
-            "created": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "creator": "dashboard"
-        }
+        # Use pm new which handles spore creation AND auto-spawns a worker
+        try:
+            result = subprocess.run(
+                ['pm', 'new', task],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
 
-        # Append to spores.jsonl
-        spores_path = os.path.join(PLASMODIUM_DIR, 'spores.jsonl')
-        with open(spores_path, 'a') as f:
-            f.write(json.dumps(spore) + '\n')
+            # Parse spore ID from output (last line should be the ID)
+            output_lines = result.stdout.strip().split('\n')
+            spore_id = output_lines[-1] if output_lines else 'unknown'
 
-        # Log to signals
-        signals_path = os.path.join(PLASMODIUM_DIR, 'signals.log')
-        timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-        signal = f"[{timestamp}] @dashboard: created spore {spore_id}: {task}\n"
-        with open(signals_path, 'a') as f:
-            f.write(signal)
+            self.send_response(201)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "id": spore_id,
+                "status": "created",
+                "auto_spawned": True
+            }).encode())
 
-        # Respond
-        self.send_response(201)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps({"id": spore_id, "status": "created"}).encode())
+        except subprocess.TimeoutExpired:
+            self.send_error(500, 'Timeout creating spore')
+        except Exception as e:
+            self.send_error(500, f'Error: {str(e)}')
 
     def log_message(self, format, *args):
         # Quieter logging
         pass
 
 def main():
-    print(f"Plasmodium Dashboard: http://localhost:{PORT}/dashboard.html")
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT
+
+    print(f"Plasmodium Dashboard: http://localhost:{port}")
     print(f"Serving from: {PLASMODIUM_DIR}")
     print("Press Ctrl+C to stop\n")
 
-    with http.server.HTTPServer(('0.0.0.0', PORT), PlasmodiumHandler) as httpd:
+    with http.server.HTTPServer(('0.0.0.0', port), PlasmodiumHandler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
