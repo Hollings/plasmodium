@@ -109,10 +109,6 @@ pm_dashboard() {
         exit 1
     fi
 
-    echo "Starting dashboard at http://localhost:$port"
-    echo "Press Ctrl+C to stop"
-    echo ""
-
     cd "$pm_dir"
     python3 server.py "$port"
 }

@@ -147,16 +147,29 @@ class PlasmodiumHandler(http.server.SimpleHTTPRequestHandler):
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT
+    max_attempts = 10
 
-    print(f"Plasmodium Dashboard: http://localhost:{port}")
-    print(f"Serving from: {PLASMODIUM_DIR}")
-    print("Press Ctrl+C to stop\n")
-
-    with http.server.HTTPServer(('0.0.0.0', port), PlasmodiumHandler) as httpd:
+    for attempt in range(max_attempts):
         try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\nShutting down...")
+            httpd = http.server.HTTPServer(('0.0.0.0', port), PlasmodiumHandler)
+            print(f"Plasmodium Dashboard: http://localhost:{port}")
+            print(f"Serving from: {PLASMODIUM_DIR}")
+            print("Press Ctrl+C to stop\n")
+            try:
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                print("\nShutting down...")
+            finally:
+                httpd.server_close()
+            return
+        except OSError as e:
+            if e.errno == 48:  # Address already in use
+                port += 1
+            else:
+                raise
+
+    print(f"Could not find open port after {max_attempts} attempts", file=sys.stderr)
+    sys.exit(1)
 
 if __name__ == '__main__':
     main()
