@@ -1,126 +1,122 @@
 #!/bin/bash
-# Plasmodium - self-orchestrating agent network
-# The slime mold finds the path
+# Plasmodium v2 - Multi-agent collaboration through bounded discussion phases
+# "The room where it happens"
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PM_SCRIPT_DIR="$SCRIPT_DIR"
+export PM_CLI="$SCRIPT_DIR/pm"
+
 source "$SCRIPT_DIR/lib/core.sh"
 
 case "${1:-}" in
-    # Signal commands
-    signal)
-        shift
-        pm_signal "$@"
-        ;;
-    signals)
-        shift
-        pm_signals "$@"
-        ;;
-
-    # Phase commands
-    explore)
-        shift
-        pm_explore "$@"
-        ;;
-    execute)
-        shift
-        pm_execute "$@"
-        ;;
-    fruit)
-        shift
-        pm_fruit "$@"
-        ;;
-
-    # Work commands
-    new)
-        shift
-        pm_new "$@"
-        ;;
-    claim)
-        shift
-        pm_claim "$@"
-        ;;
-    split)
-        shift
-        pm_split "$@"
-        ;;
-    ripen)
-        shift
-        pm_ripen "$@"
-        ;;
-
-    # Plan & approval commands
-    plan)
-        shift
-        pm_plan "$@"
-        ;;
-    approve)
-        shift
-        pm_approve "$@"
-        ;;
-    reject)
-        shift
-        pm_reject "$@"
-        ;;
-
-    # Worker commands
-    spawn)
-        shift
-        pm_spawn "$@"
-        ;;
-    status)
-        shift
-        pm_status "$@"
-        ;;
-
-    # Setup commands
+    # Setup
     init)
         shift
         pm_init "$@"
-        ;;
-    dashboard)
-        shift
-        pm_dashboard "$@"
         ;;
     reset)
         shift
         pm_reset "$@"
         ;;
 
-    *)
-        echo "plasmodium - self-orchestrating agent network"
+    # Task management (human)
+    task)
+        shift
+        pm_task "$@"
+        ;;
+    status)
+        shift
+        pm_status "$@"
+        ;;
+    kill)
+        shift
+        pm_kill "$@"
+        ;;
+
+    # Phase management (owner)
+    phase)
+        shift
+        pm_phase "$@"
+        ;;
+    extend-phase)
+        shift
+        pm_extend_phase "$@"
+        ;;
+    end-phase)
+        shift
+        pm_end_phase "$@"
+        ;;
+
+    # Discussion (all agents)
+    chat)
+        shift
+        pm_chat "$@"
+        ;;
+    say)
+        shift
+        pm_say "$@"
+        ;;
+    history)
+        shift
+        pm_history "$@"
+        ;;
+
+    # Task lifecycle (owner)
+    subtask)
+        shift
+        pm_subtask "$@"
+        ;;
+    wait-children)
+        shift
+        pm_wait_children "$@"
+        ;;
+    done)
+        shift
+        pm_done "$@"
+        ;;
+
+    # Dashboard
+    dashboard)
+        shift
+        pm_dashboard "$@"
+        ;;
+
+    # Help
+    -h|--help|help|"")
+        echo "plasmodium v2 - multi-agent collaboration"
         echo ""
         echo "Usage: pm <command> [args...]"
         echo ""
         echo "Setup:"
-        echo "  init [path]         Initialize plasmodium in a project"
-        echo "  dashboard [-d] [port]  Start dashboard (-d for background)"
-        echo "  reset               Clear all spores, workers, signals"
+        echo "  init                      Initialize plasmodium in current project"
+        echo "  reset                     Clear all state"
+        echo "  dashboard                 Start web dashboard"
         echo ""
-        echo "Work:"
-        echo "  new [--depends id] <task>  Create new spore (auto-spawns worker)"
-        echo "  claim <id>                 Claim a spore"
-        echo "  split <id> <tasks...>      Split spore into sub-spores"
+        echo "For Humans:"
+        echo "  task \"description\"        Create task, spawn owner agent"
+        echo "  status                    Show tasks, phases, agents"
+        echo "  kill <task-id>            Kill task and its agents"
         echo ""
-        echo "Plan & Approval:"
-        echo "  plan <id> [--approvals N]  Submit plan for review"
-        echo "  approve <id> [reason]      Approve a plan"
-        echo "  reject <id> <reason>       Reject a plan"
+        echo "For All Agents:"
+        echo "  chat                      Read current phase messages"
+        echo "  say \"message\"             Post to current phase"
+        echo "  history --tail N          Read previous phase discussions"
         echo ""
-        echo "Phases:"
-        echo "  explore <id>        Enter plasmodium mode (exploration)"
-        echo "  execute <id>        Enter mycelium mode (execution)"
-        echo "  fruit <id> <output> Complete work with output"
-        echo ""
-        echo "Signals:"
-        echo "  signal [-s <spore>] <msg>  Emit to log (optionally tagged to spore)"
-        echo "  signals [-s <spore>] [-f]  Read log (filter by spore, -f to follow)"
-        echo ""
-        echo "Workers:"
-        echo "  spawn [name]        Start new worker (usually auto)"
-        echo "  status              Show colony status"
+        echo "For Owner Agents:"
+        echo "  phase \"Name\" --limit N --roles r1,r2"
+        echo "                            Create discussion phase"
+        echo "  extend-phase N            Add N more messages to limit"
+        echo "  end-phase                 Close phase early"
+        echo "  subtask \"description\"     Create child task"
+        echo "  wait-children             Block until subtasks done"
+        echo "  done                      Mark task complete"
+        ;;
+
+    *)
+        echo "Unknown command: $1" >&2
+        echo "Run 'pm --help' for usage" >&2
         exit 1
         ;;
 esac

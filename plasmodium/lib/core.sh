@@ -1,955 +1,751 @@
 #!/bin/bash
-# Core functions for plasmodium
+# Plasmodium v2 - Core library
+# All the functions that make the magic happen
 
-# Find project root (where .plasmodium lives)
-find_root() {
+# ============================================================================
+# Configuration
+# ============================================================================
+
+# Tree names for agents
+TREE_NAMES=(oak cedar pine maple birch ash willow hazel elm beech alder rowan holly ivy yew)
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
+
+gen_id() {
+    local prefix="$1"
+    echo "${prefix}-$(openssl rand -hex 3)"
+}
+
+gen_agent_name() {
+    local tree="${TREE_NAMES[$RANDOM % ${#TREE_NAMES[@]}]}"
+    local suffix=$(openssl rand -hex 2)
+    echo "${tree}_${suffix}"
+}
+
+get_timestamp() {
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+get_pm_dir() {
+    # Find .plasmodium directory (walk up from cwd)
     local dir="$PWD"
     while [[ "$dir" != "/" ]]; do
         if [[ -d "$dir/.plasmodium" ]]; then
-            echo "$dir"
+            echo "$dir/.plasmodium"
             return 0
         fi
         dir="$(dirname "$dir")"
     done
+    echo ""
     return 1
 }
 
-# Get paths
-get_pm_dir() {
-    local root=$(find_root) || { echo "Not in a plasmodium project. Run 'pm init'" >&2; exit 1; }
-    echo "$root/.plasmodium"
-}
-
-get_signal_log() {
-    echo "$(get_pm_dir)/signals.log"
-}
-
-get_spores_file() {
-    echo "$(get_pm_dir)/spores.jsonl"
-}
-
-get_workers_file() {
-    echo "$(get_pm_dir)/workers.json"
-}
-
-# Worker identity
-get_worker_name() {
-    if [[ -n "${PM_WORKER:-}" ]]; then
-        echo "$PM_WORKER"
-    else
-        echo "human"
-    fi
-}
-
-# Generate ID
-gen_id() {
-    # sp-xxxx format
-    echo "sp-$(head -c 4 /dev/urandom | xxd -p)"
-}
-
-# ============================================
-# INIT
-# ============================================
-
-pm_init() {
-    local dir="${1:-.}"
-    local pm_dir="$dir/.plasmodium"
-
-    # Convert to absolute path
-    dir="$(cd "$dir" 2>/dev/null && pwd)" || { echo "Directory not found: $1" >&2; exit 1; }
-    pm_dir="$dir/.plasmodium"
-
-    mkdir -p "$pm_dir"
-    mkdir -p "$pm_dir/logs"
-    mkdir -p "$pm_dir/docs"
-    mkdir -p "$pm_dir/gates/pre-execute"
-    mkdir -p "$pm_dir/gates/pre-fruit"
-    mkdir -p "$pm_dir/gates/post-fruit"
-
-    # Initialize signal log
-    if [[ ! -f "$pm_dir/signals.log" ]]; then
-        echo "# Plasmodium Signal Log" > "$pm_dir/signals.log"
-        echo "# Workers communicate here" >> "$pm_dir/signals.log"
-        echo "---" >> "$pm_dir/signals.log"
-    fi
-
-    # Initialize spores file
-    if [[ ! -f "$pm_dir/spores.jsonl" ]]; then
-        touch "$pm_dir/spores.jsonl"
-    fi
-
-    # Initialize workers file
-    if [[ ! -f "$pm_dir/workers.json" ]]; then
-        echo '{"workers": {}}' > "$pm_dir/workers.json"
-    fi
-
-    # Copy dashboard files from plasmodium source
-    if [[ -f "$PM_SCRIPT_DIR/dashboard/index.html" ]]; then
-        cp "$PM_SCRIPT_DIR/dashboard/index.html" "$pm_dir/index.html"
-        cp "$PM_SCRIPT_DIR/dashboard/server.py" "$pm_dir/server.py"
-    fi
-
-    # Save config with pm path for server.py to use
-    echo "{\"pm_cli\": \"$PM_SCRIPT_DIR/pm\"}" > "$pm_dir/config.json"
-
-    echo "Initialized plasmodium in $pm_dir/"
-    echo ""
-    echo "Next steps:"
-    echo "  cd $dir"
-    echo "  pm dashboard     # start the dashboard"
-    echo "  pm new \"task\"    # create work"
-}
-
-pm_dashboard() {
+get_project_dir() {
     local pm_dir=$(get_pm_dir)
-    local background=false
-    local port="3456"
+    if [[ -n "$pm_dir" ]]; then
+        dirname "$pm_dir"
+    fi
+}
 
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -d|--background) background=true; shift ;;
-            *) port="$1"; shift ;;
-        esac
-    done
-
-    if [[ ! -f "$pm_dir/server.py" ]]; then
-        echo "Dashboard not found. Run 'pm init' first." >&2
+require_pm_dir() {
+    local pm_dir=$(get_pm_dir)
+    if [[ -z "$pm_dir" ]]; then
+        echo "Error: Not in a plasmodium project. Run 'pm init' first." >&2
         exit 1
     fi
+    echo "$pm_dir"
+}
 
-    cd "$pm_dir"
-    if [[ "$background" == "true" ]]; then
-        python3 server.py "$port" > /dev/null 2>&1 &
-        local pid=$!
-        sleep 0.5  # let it find a port and write file
-        if [[ -f ".dashboard_port" ]]; then
-            local actual_port=$(cat .dashboard_port)
-            echo "Dashboard: http://localhost:$actual_port (PID: $pid)"
-            open "http://localhost:$actual_port" 2>/dev/null || true
-        else
-            echo "Dashboard starting... (PID: $pid)"
-        fi
-    else
-        python3 server.py "$port"
+# ============================================================================
+# Agent Identity
+# ============================================================================
+
+get_agent_name() {
+    # Agent name comes from environment variable set during spawn
+    echo "${PM_AGENT_NAME:-}"
+}
+
+get_agent_task() {
+    echo "${PM_TASK_ID:-}"
+}
+
+get_agent_phase() {
+    echo "${PM_PHASE_ID:-}"
+}
+
+get_agent_role() {
+    echo "${PM_ROLE:-}"
+}
+
+is_agent() {
+    [[ -n "$(get_agent_name)" ]]
+}
+
+# ============================================================================
+# Task Functions
+# ============================================================================
+
+get_task() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local task_file="$pm_dir/tasks/$task_id/task.json"
+    if [[ -f "$task_file" ]]; then
+        cat "$task_file"
     fi
 }
 
-pm_reset() {
-    local pm_dir=$(get_pm_dir)
+list_tasks() {
+    local pm_dir=$(require_pm_dir)
+    local tasks_dir="$pm_dir/tasks"
+    if [[ -d "$tasks_dir" ]]; then
+        for task_dir in "$tasks_dir"/*/; do
+            if [[ -f "${task_dir}task.json" ]]; then
+                cat "${task_dir}task.json"
+            fi
+        done
+    fi
+}
 
-    echo "Resetting plasmodium state..."
+create_task() {
+    local pm_dir=$(require_pm_dir)
+    local description="$1"
+    local parent_id="${2:-}"
 
-    # Clear spores
-    > "$pm_dir/spores.jsonl"
+    local task_id=$(gen_id "tk")
+    local task_dir="$pm_dir/tasks/$task_id"
+    mkdir -p "$task_dir/phases"
 
-    # Clear workers
-    echo '{"workers": {}}' > "$pm_dir/workers.json"
+    local owner=$(gen_agent_name)
 
-    # Reset signals log
-    cat > "$pm_dir/signals.log" << 'EOF'
-# Plasmodium Signal Log
-# Workers communicate here
----
+    cat > "$task_dir/task.json" << EOF
+{
+  "id": "$task_id",
+  "description": "$description",
+  "owner": "$owner",
+  "parent_id": ${parent_id:+\"$parent_id\"}${parent_id:-null},
+  "status": "active",
+  "created_at": "$(get_timestamp)"
+}
 EOF
 
-    # Clear docs
-    rm -rf "$pm_dir/docs"/*
-
-    # Clear logs
-    rm -f "$pm_dir/logs"/*.log
-
-    echo "Reset complete. Run 'pm status' to verify."
+    echo "$task_id"
 }
 
-# ============================================
-# SIGNALS
-# ============================================
-
-pm_signal() {
-    local spore=""
-    local msg=""
-
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --spore|-s)
-                spore="$2"
-                shift 2
-                ;;
-            *)
-                if [[ -z "$msg" ]]; then
-                    msg="$1"
-                else
-                    msg="$msg $1"
-                fi
-                shift
-                ;;
-        esac
-    done
-
-    if [[ -z "$msg" ]]; then
-        echo "Usage: pm signal [--spore <id>] <message>" >&2
-        exit 1
-    fi
-
-    local log=$(get_signal_log)
-    local worker=$(get_worker_name)
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-
-    if [[ -n "$spore" ]]; then
-        echo "[$timestamp] @$worker [$spore]: $msg" >> "$log"
-    else
-        echo "[$timestamp] @$worker: $msg" >> "$log"
-    fi
-    echo "signaled"
-}
-
-pm_signals() {
-    local log=$(get_signal_log)
-    local follow=false
-    local spore=""
-    local n="50"
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --follow|-f) follow=true; shift ;;
-            --spore|-s) spore="$2"; shift 2 ;;
-            *) n="$1"; shift ;;
-        esac
-    done
-
-    if [[ "$follow" == "true" ]]; then
-        if [[ -n "$spore" ]]; then
-            tail -f "$log" | grep --line-buffered "\[$spore\]"
-        else
-            tail -f "$log"
-        fi
-    else
-        if [[ -n "$spore" ]]; then
-            grep "\[$spore\]" "$log" | tail -n "$n"
-        else
-            tail -n "$n" "$log"
-        fi
-    fi
-}
-
-# ============================================
-# SPORE MANAGEMENT
-# ============================================
-
-pm_new() {
-    local depends_on=()
-    local task=""
-
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --depends)
-                shift
-                depends_on+=("$1")
-                shift
-                ;;
-            *)
-                if [[ -z "$task" ]]; then
-                    task="$1"
-                else
-                    task="$task $1"
-                fi
-                shift
-                ;;
-        esac
-    done
-
-    if [[ -z "$task" ]]; then
-        echo "Usage: pm new [--depends <spore-id>]... <task description>" >&2
-        exit 1
-    fi
-
-    local id=$(gen_id)
-    local spores=$(get_spores_file)
-    local worker=$(get_worker_name)
-    local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-
-    # Determine initial status based on dependencies
-    local status="raw"
-    if [[ ${#depends_on[@]} -gt 0 ]]; then
-        # Check if all dependencies are already done
-        local all_done=true
-        for dep_id in "${depends_on[@]}"; do
-            local dep_spore=$(get_spore "$dep_id")
-            if [[ -n "$dep_spore" ]]; then
-                local dep_status=$(echo "$dep_spore" | jq -r '.status')
-                if [[ "$dep_status" != "done" ]]; then
-                    all_done=false
-                    break
-                fi
-            else
-                # Dependency doesn't exist yet - block
-                all_done=false
-                break
-            fi
-        done
-        if ! $all_done; then
-            status="blocked"
-        fi
-    fi
-
-    local depends_json=$(printf '%s\n' "${depends_on[@]}" | jq -R . | jq -s . 2>/dev/null || echo "[]")
-
-    local spore=$(jq -nc \
-        --arg id "$id" \
-        --arg task "$task" \
-        --arg created "$timestamp" \
-        --arg creator "$worker" \
-        --arg status "$status" \
-        --argjson depends "$depends_json" \
-        '{
-            id: $id,
-            type: "task",
-            parent: null,
-            children: [],
-            depends_on: $depends,
-            status: $status,
-            phase: null,
-            task: $task,
-            claimed_by: null,
-            fruit: null,
-            plan_file: null,
-            approvals_needed: 0,
-            approvals: [],
-            rejections: [],
-            created: $created,
-            creator: $creator
-        }')
-
-    echo "$spore" >> "$spores"
-
-    if [[ ${#depends_on[@]} -gt 0 ]]; then
-        if [[ "$status" == "blocked" ]]; then
-            pm_signal "created spore $id (blocked by ${depends_on[*]}): $task"
-        else
-            pm_signal "created spore $id (depends on ${depends_on[*]}, ready): $task"
-        fi
-    else
-        pm_signal "created spore $id: $task"
-    fi
-
-    # Auto-spawn: if human creates a non-blocked spore, spawn 2 workers
-    # One claims, one becomes discussion partner. Both exit when idle.
-    if [[ "$worker" == "human" && "$status" != "blocked" ]]; then
-        spawn_workers_background 2
-    fi
-
-    echo "$id"
-}
-
-get_spore() {
-    local id="$1"
-    local spores=$(get_spores_file)
-    grep "\"id\":\"$id\"" "$spores" | tail -1
-}
-
-update_spore() {
-    local id="$1"
-    local field="$2"
-    local value="$3"
-
-    local spores=$(get_spores_file)
-    local spore=$(get_spore "$id")
-
-    if [[ -z "$spore" ]]; then
-        echo "Spore not found: $id" >&2
-        exit 1
-    fi
-
-    # Update the spore and append new version
-    local updated=$(echo "$spore" | jq -c --arg v "$value" ".$field = \$v")
-    echo "$updated" >> "$spores"
-}
-
-update_spore_json() {
-    local id="$1"
-    local field="$2"
-    local json_value="$3"
-
-    local spores=$(get_spores_file)
-    local spore=$(get_spore "$id")
-
-    if [[ -z "$spore" ]]; then
-        echo "Spore not found: $id" >&2
-        exit 1
-    fi
-
-    local updated=$(echo "$spore" | jq -c --argjson v "$json_value" ".$field = \$v")
-    echo "$updated" >> "$spores"
-}
-
-pm_claim() {
-    local id="$1"
-    if [[ -z "$id" ]]; then
-        echo "Usage: pm claim <spore-id>" >&2
-        exit 1
-    fi
-
-    local spore=$(get_spore "$id")
-    if [[ -z "$spore" ]]; then
-        echo "Spore not found: $id" >&2
-        exit 1
-    fi
-
-    local current_owner=$(echo "$spore" | jq -r '.claimed_by // empty')
-    local worker=$(get_worker_name)
-
-    if [[ -n "$current_owner" && "$current_owner" != "$worker" ]]; then
-        echo "Already claimed by @$current_owner" >&2
-        exit 1
-    fi
-
-    update_spore "$id" "claimed_by" "$worker"
-    pm_signal "claimed $id"
-    echo "claimed $id"
-}
-
-pm_explore() {
-    local id="$1"
-    if [[ -z "$id" ]]; then
-        echo "Usage: pm explore <spore-id>" >&2
-        exit 1
-    fi
-
-    local spores=$(get_spores_file)
-    local spore=$(get_spore "$id")
-    local updated=$(echo "$spore" | jq -c '.status = "exploring" | .phase = "plasmodium"')
-    echo "$updated" >> "$spores"
-
-    pm_signal "exploring $id (plasmodium mode)"
-    echo "exploring $id"
-}
-
-pm_execute() {
-    local id="$1"
-    if [[ -z "$id" ]]; then
-        echo "Usage: pm execute <spore-id>" >&2
-        exit 1
-    fi
-
-    local spores=$(get_spores_file)
-    local spore=$(get_spore "$id")
-    local updated=$(echo "$spore" | jq -c '.status = "executing" | .phase = "mycelium"')
-    echo "$updated" >> "$spores"
-
-    pm_signal "executing $id (mycelium mode)"
-    echo "executing $id"
-}
-
-pm_split() {
-    local parent_id="$1"
-    shift
-
-    if [[ -z "$parent_id" ]]; then
-        echo "Usage: pm split <parent-id> <child1> <child2> ..." >&2
-        exit 1
-    fi
-
-    local children=()
-
-    for task in "$@"; do
-        local child_id=$(gen_id)
-        local spores=$(get_spores_file)
-        local worker=$(get_worker_name)
-        local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-
-        local spore=$(jq -nc \
-            --arg id "$child_id" \
-            --arg parent "$parent_id" \
-            --arg task "$task" \
-            --arg created "$timestamp" \
-            --arg creator "$worker" \
-            '{
-                id: $id,
-                parent: $parent,
-                children: [],
-                status: "raw",
-                phase: null,
-                task: $task,
-                claimed_by: null,
-                fruit: null,
-                created: $created,
-                creator: $creator
-            }')
-
-        echo "$spore" >> "$spores"
-        children+=("$child_id")
-        echo "created child: $child_id - $task"
-    done
-
-    # Update parent with children
-    local children_json=$(printf '%s\n' "${children[@]}" | jq -R . | jq -s .)
-    update_spore_json "$parent_id" "children" "$children_json"
-    update_spore "$parent_id" "status" "waiting"
-
-    pm_signal "split $parent_id into ${#children[@]} children"
-}
-
-pm_fruit() {
-    local id="$1"
-    shift
-    local output="$*"
-
-    if [[ -z "$id" ]]; then
-        echo "Usage: pm fruit <spore-id> <output description>" >&2
-        exit 1
-    fi
-
-    # Run pre-fruit gates
-    run_gates "pre-fruit" "$id" || { echo "gates failed" >&2; return 1; }
-
-    local spores=$(get_spores_file)
-    local spore=$(get_spore "$id")
-    local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-
-    local updated=$(echo "$spore" | jq -c \
-        --arg fruit "$output" \
-        --arg time "$timestamp" \
-        '.status = "done" | .phase = null | .fruit = $fruit | .completed = $time')
-    echo "$updated" >> "$spores"
-
-    pm_signal "fruited $id: $output"
-
-    # Check if parent can ripen
-    local parent=$(echo "$spore" | jq -r '.parent // empty')
-    if [[ -n "$parent" ]]; then
-        pm_ripen "$parent" 2>/dev/null || true
-    fi
-
-    # Unblock any spores that depend on this one
-    unblock_dependents "$id"
-
-    # Run post-fruit gates
-    run_gates "post-fruit" "$id" || true
-
-    echo "fruited $id"
-}
-
-# Unblock spores that were waiting on this one
-unblock_dependents() {
-    local completed_id="$1"
-    local spores=$(get_spores_file)
-
-    # Find all blocked spores that depend on completed_id
-    jq -rsc --arg dep "$completed_id" '
-        group_by(.id) | map(last) | .[] |
-        select(.status == "blocked" and (.depends_on | index($dep)))
-    ' "$spores" 2>/dev/null | while read -r spore; do
-        [[ -z "$spore" ]] && continue
-
-        local blocked_id=$(echo "$spore" | jq -r '.id')
-        local depends=$(echo "$spore" | jq -r '.depends_on[]' 2>/dev/null)
-
-        # Check if ALL dependencies are now done
-        local all_done=true
-        for dep_id in $depends; do
-            local dep_spore=$(get_spore "$dep_id")
-            local dep_status=$(echo "$dep_spore" | jq -r '.status')
-            if [[ "$dep_status" != "done" ]]; then
-                all_done=false
-                break
-            fi
-        done
-
-        if $all_done; then
-            update_spore "$blocked_id" "status" "raw"
-            pm_signal "$blocked_id unblocked (dependencies complete)"
-        fi
-    done
-}
-
-pm_ripen() {
-    local id="$1"
-    if [[ -z "$id" ]]; then
-        echo "Usage: pm ripen <spore-id>" >&2
-        exit 1
-    fi
-
-    local spore=$(get_spore "$id")
-    local children=$(echo "$spore" | jq -r '.children[]' 2>/dev/null)
-
-    if [[ -z "$children" ]]; then
-        echo "no children to ripen"
-        return 0
-    fi
-
-    # Check if all children are done
-    local all_done=true
-    for child_id in $children; do
-        local child=$(get_spore "$child_id")
-        local status=$(echo "$child" | jq -r '.status')
-        if [[ "$status" != "done" ]]; then
-            all_done=false
-            break
-        fi
-    done
-
-    if $all_done; then
-        update_spore "$id" "status" "ripe"
-        pm_signal "$id ripened - all children complete"
-        echo "$id is ripe!"
-    else
-        echo "$id not ready - children still in progress"
-    fi
-}
-
-# ============================================
-# WORKERS
-# ============================================
-
-# Generate a unique worker name
-gen_worker_name() {
-    local trees=("oak" "maple" "birch" "willow" "cedar" "pine" "ash" "elm" "beech" "hazel")
-    echo "${trees[$RANDOM % ${#trees[@]}]}_$(head -c 2 /dev/urandom | xxd -p)"
-}
-
-# Internal: spawn a worker (can be foreground or background)
-_spawn_worker() {
-    local name="$1"
-    local background="${2:-false}"
-
-    local pm_dir=$(get_pm_dir)
-    local project_root=$(find_root)
-    local prompt_file="$PM_SCRIPT_DIR/prompts/worker.txt"
-
-    if [[ ! -f "$prompt_file" ]]; then
-        echo "Worker prompt not found: $prompt_file" >&2
+update_task_status() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local status="$2"
+    local task_file="$pm_dir/tasks/$task_id/task.json"
+
+    if [[ ! -f "$task_file" ]]; then
+        echo "Error: Task not found: $task_id" >&2
         return 1
     fi
 
-    # Full path to pm CLI
-    local pm_cli="$PM_SCRIPT_DIR/pm"
-
-    # Build the prompt with substitutions
-    local prompt=$(cat "$prompt_file" | sed \
-        -e "s|{WORKER}|$name|g" \
-        -e "s|{PROJECT}|$project_root|g" \
-        -e "s|{PM_DIR}|$pm_dir|g" \
-        -e "s|{PM_CLI}|$pm_cli|g")
-
-    pm_signal "spawning worker @$name"
-
-    # Record worker
-    local workers=$(get_workers_file)
     local tmp=$(mktemp)
-    jq --arg name "$name" --arg time "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-        '.workers[$name] = {started: $time, status: "active"}' \
-        "$workers" > "$tmp" && mv "$tmp" "$workers"
+    jq --arg status "$status" '.status = $status' "$task_file" > "$tmp"
+    mv "$tmp" "$task_file"
+}
 
-    if [[ "$background" == "true" ]]; then
-        # Run in background, redirect output to log
-        local log_dir="$pm_dir/logs"
-        mkdir -p "$log_dir"
-        (
-            cd "$project_root"
-            PM_WORKER="$name" claude -p "$prompt" \
-                --model opus \
-                --dangerously-skip-permissions \
-                > "$log_dir/$name.log" 2>&1
-        ) &
-        echo "spawned @$name (pid $!)"
-    else
-        echo "Spawning worker: @$name"
-        echo "---"
-        cd "$project_root"
-        PM_WORKER="$name" exec claude -p "$prompt" \
-            --model opus \
-            --dangerously-skip-permissions
+# ============================================================================
+# Phase Functions
+# ============================================================================
+
+get_phase() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+    local phase_file="$pm_dir/tasks/$task_id/phases/$phase_id/phase.json"
+    if [[ -f "$phase_file" ]]; then
+        cat "$phase_file"
     fi
 }
 
-# Spawn worker(s) in background - used by hooks
-spawn_workers_background() {
-    local count="${1:-1}"
-    # Run entire spawn in background so pm new returns immediately
-    (
-        for ((i=0; i<count; i++)); do
-            local name=$(gen_worker_name)
-            _spawn_worker "$name" true
+get_active_phase() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phases_dir="$pm_dir/tasks/$task_id/phases"
+
+    if [[ -d "$phases_dir" ]]; then
+        for phase_dir in "$phases_dir"/*/; do
+            if [[ -f "${phase_dir}phase.json" ]]; then
+                local status=$(jq -r '.status' "${phase_dir}phase.json")
+                if [[ "$status" == "active" ]]; then
+                    cat "${phase_dir}phase.json"
+                    return 0
+                fi
+            fi
         done
-    ) &>/dev/null &
+    fi
+    return 1
 }
 
-pm_spawn() {
-    local name="${1:-$(gen_worker_name)}"
-    _spawn_worker "$name" false
+create_phase() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local name="$2"
+    local limit="$3"
+    shift 3
+    local roles=("$@")
+
+    local phase_id=$(gen_id "ph")
+    local phase_dir="$pm_dir/tasks/$task_id/phases/$phase_id"
+    mkdir -p "$phase_dir"
+
+    # Create roles JSON array
+    local roles_json=$(printf '%s\n' "${roles[@]}" | jq -R . | jq -s .)
+
+    cat > "$phase_dir/phase.json" << EOF
+{
+  "id": "$phase_id",
+  "task_id": "$task_id",
+  "name": "$name",
+  "message_limit": $limit,
+  "roles": $roles_json,
+  "status": "active",
+  "created_at": "$(get_timestamp)"
+}
+EOF
+
+    # Create empty messages file
+    touch "$phase_dir/messages.jsonl"
+
+    echo "$phase_id"
+}
+
+get_message_count() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+    local messages_file="$pm_dir/tasks/$task_id/phases/$phase_id/messages.jsonl"
+
+    if [[ -f "$messages_file" ]]; then
+        wc -l < "$messages_file" | tr -d ' '
+    else
+        echo "0"
+    fi
+}
+
+append_message() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+    local author="$3"
+    local role="$4"
+    local content="$5"
+
+    local messages_file="$pm_dir/tasks/$task_id/phases/$phase_id/messages.jsonl"
+    local msg_id=$(gen_id "msg")
+
+    # Escape content for JSON
+    local escaped_content=$(echo "$content" | jq -Rs .)
+
+    # Build role JSON value
+    local role_json="null"
+    if [[ -n "$role" ]]; then
+        role_json="\"$role\""
+    fi
+
+    echo "{\"id\":\"$msg_id\",\"author\":\"$author\",\"role\":$role_json,\"content\":$escaped_content,\"timestamp\":\"$(get_timestamp)\"}" >> "$messages_file"
+}
+
+close_phase() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+    local phase_file="$pm_dir/tasks/$task_id/phases/$phase_id/phase.json"
+
+    if [[ ! -f "$phase_file" ]]; then
+        echo "Error: Phase not found" >&2
+        return 1
+    fi
+
+    local tmp=$(mktemp)
+    jq '.status = "closed"' "$phase_file" > "$tmp"
+    mv "$tmp" "$phase_file"
+}
+
+# ============================================================================
+# Agent Registry
+# ============================================================================
+
+register_agent() {
+    local pm_dir=$(require_pm_dir)
+    local name="$1"
+    local task_id="$2"
+    local phase_id="${3:-}"
+    local role="${4:-}"
+    local pid="${5:-}"
+
+    local agents_file="$pm_dir/agents.json"
+
+    # Initialize if doesn't exist
+    if [[ ! -f "$agents_file" ]]; then
+        echo '{"agents":{}}' > "$agents_file"
+    fi
+
+    local tmp=$(mktemp)
+    jq --arg name "$name" \
+       --arg task_id "$task_id" \
+       --arg phase_id "$phase_id" \
+       --arg role "$role" \
+       --arg pid "$pid" \
+       --arg timestamp "$(get_timestamp)" \
+       '.agents[$name] = {
+         "name": $name,
+         "task_id": $task_id,
+         "phase_id": (if $phase_id == "" then null else $phase_id end),
+         "role": (if $role == "" then null else $role end),
+         "pid": (if $pid == "" then null else ($pid | tonumber) end),
+         "registered_at": $timestamp
+       }' "$agents_file" > "$tmp"
+    mv "$tmp" "$agents_file"
+}
+
+unregister_agent() {
+    local pm_dir=$(require_pm_dir)
+    local name="$1"
+    local agents_file="$pm_dir/agents.json"
+
+    if [[ -f "$agents_file" ]]; then
+        local tmp=$(mktemp)
+        jq --arg name "$name" 'del(.agents[$name])' "$agents_file" > "$tmp"
+        mv "$tmp" "$agents_file"
+    fi
+}
+
+list_agents() {
+    local pm_dir=$(require_pm_dir)
+    local agents_file="$pm_dir/agents.json"
+
+    if [[ -f "$agents_file" ]]; then
+        jq -r '.agents | to_entries[] | .value' "$agents_file"
+    fi
+}
+
+# ============================================================================
+# Agent Spawning
+# ============================================================================
+
+spawn_agent() {
+    local name="$1"
+    local task_id="$2"
+    local prompt_file="$3"
+    local phase_id="${4:-}"
+    local role="${5:-}"
+
+    local pm_dir=$(require_pm_dir)
+    local project_dir=$(get_project_dir)
+    local log_dir="$pm_dir/logs"
+    mkdir -p "$log_dir"
+
+    # Read and substitute prompt
+    local prompt=$(cat "$prompt_file")
+    prompt="${prompt//\{NAME\}/$name}"
+    prompt="${prompt//\{TASK_ID\}/$task_id}"
+    prompt="${prompt//\{PHASE_ID\}/$phase_id}"
+    prompt="${prompt//\{ROLE\}/$role}"
+
+    # Get task description
+    local task=$(get_task "$task_id")
+    local task_desc=$(echo "$task" | jq -r '.description')
+    prompt="${prompt//\{TASK_DESCRIPTION\}/$task_desc}"
+
+    # Get phase info if applicable
+    if [[ -n "$phase_id" ]]; then
+        local phase=$(get_phase "$task_id" "$phase_id")
+        local phase_name=$(echo "$phase" | jq -r '.name')
+        local phase_limit=$(echo "$phase" | jq -r '.message_limit')
+        prompt="${prompt//\{PHASE_NAME\}/$phase_name}"
+        prompt="${prompt//\{PHASE_LIMIT\}/$phase_limit}"
+    fi
+
+    # Spawn Claude Code in background
+    (
+        cd "$project_dir"
+        PM_AGENT_NAME="$name" \
+        PM_TASK_ID="$task_id" \
+        PM_PHASE_ID="$phase_id" \
+        PM_ROLE="$role" \
+        PM_CLI="$PM_CLI" \
+        claude --dangerously-skip-permissions -p "$prompt" \
+            > "$log_dir/${name}.log" 2>&1
+    ) &
+
+    local pid=$!
+
+    # Register agent
+    register_agent "$name" "$task_id" "$phase_id" "$role" "$pid"
+
+    echo "$name (pid: $pid)"
+}
+
+# ============================================================================
+# Command Implementations
+# ============================================================================
+
+pm_init() {
+    local pm_dir=".plasmodium"
+
+    if [[ -d "$pm_dir" ]]; then
+        echo "Already initialized"
+        return 0
+    fi
+
+    mkdir -p "$pm_dir/tasks"
+    mkdir -p "$pm_dir/logs"
+
+    cat > "$pm_dir/config.json" << EOF
+{
+  "version": "2.0.0",
+  "project_path": "$PWD",
+  "created_at": "$(get_timestamp)"
+}
+EOF
+
+    echo '{"agents":{}}' > "$pm_dir/agents.json"
+
+    echo "Initialized plasmodium in $PWD"
+}
+
+pm_reset() {
+    local pm_dir=$(require_pm_dir)
+
+    echo "Resetting plasmodium state..."
+
+    # Kill all agents
+    if [[ -f "$pm_dir/agents.json" ]]; then
+        local pids=$(jq -r '.agents[].pid // empty' "$pm_dir/agents.json")
+        for pid in $pids; do
+            kill "$pid" 2>/dev/null || true
+        done
+    fi
+
+    # Clear state
+    rm -rf "$pm_dir/tasks"
+    mkdir -p "$pm_dir/tasks"
+    echo '{"agents":{}}' > "$pm_dir/agents.json"
+    rm -f "$pm_dir/logs"/*.log
+
+    echo "Reset complete"
+}
+
+pm_task() {
+    local description="$1"
+
+    if [[ -z "$description" ]]; then
+        echo "Usage: pm task \"description\"" >&2
+        exit 1
+    fi
+
+    local task_id=$(create_task "$description")
+    local task=$(get_task "$task_id")
+    local owner=$(echo "$task" | jq -r '.owner')
+
+    echo "Created task: $task_id"
+    echo "Owner: @$owner"
+
+    # Spawn owner agent
+    local prompt_file="$PM_SCRIPT_DIR/prompts/owner.md"
+    if [[ ! -f "$prompt_file" ]]; then
+        echo "Warning: Owner prompt not found at $prompt_file" >&2
+        echo "Agent not spawned - create the prompt file first" >&2
+        return 0
+    fi
+
+    echo "Spawning owner agent..."
+    spawn_agent "$owner" "$task_id" "$prompt_file"
 }
 
 pm_status() {
-    local pm_dir=$(get_pm_dir)
-    local spores=$(get_spores_file)
-    local workers=$(get_workers_file)
+    local pm_dir=$(require_pm_dir)
 
-    echo "=== PLASMODIUM STATUS ==="
+    echo "=== Tasks ==="
+    list_tasks | jq -r '"[\(.status)] \(.id): \(.description) (owner: @\(.owner))"'
+
     echo ""
-
-    echo "WORKERS:"
-    jq -r '.workers | to_entries[] | "  @\(.key): \(.value.status) (since \(.value.started))"' "$workers" 2>/dev/null || echo "  (none)"
-    echo ""
-
-    echo "SPORES:"
-    if [[ -s "$spores" ]]; then
-        # Use jq to get unique spores (last occurrence wins)
-        jq -rs 'group_by(.id) | map(last) | .[] | "\(.id)\t\(.status)\t\(.claimed_by // "-")\t\(.task)"' "$spores" 2>/dev/null | \
-        while IFS=$'\t' read -r id status claimed task; do
-            # Remove quotes from jq output
-            id=${id//\"/}
-            status=${status//\"/}
-            claimed=${claimed//\"/}
-            task=${task//\"/}
-            printf "  %-12s %-10s @%-10s %s\n" "$id" "[$status]" "$claimed" "${task:0:50}"
-        done | head -20
-        [[ ${PIPESTATUS[0]} -ne 0 ]] && echo "  (error reading spores)"
-    else
-        echo "  (none)"
-    fi
-    echo ""
-
-    echo "RECENT SIGNALS:"
-    tail -5 "$(get_signal_log)" | grep -v "^#" | grep -v "^---"
+    echo "=== Agents ==="
+    list_agents | jq -r '"@\(.name) - task:\(.task_id) phase:\(.phase_id // "none") role:\(.role // "owner")"'
 }
 
-# ============================================
-# GATES (HOOKS)
-# ============================================
+pm_phase() {
+    local name=""
+    local limit=10
+    local roles=()
+    local rules=""
 
-run_gates() {
-    local phase="$1"  # pre-execute, pre-fruit, post-fruit
-    local spore_id="$2"
-
-    local pm_dir=$(get_pm_dir)
-    local gates_dir="$pm_dir/gates/$phase"
-
-    if [[ ! -d "$gates_dir" ]]; then
-        return 0  # No gates for this phase
-    fi
-
-    for gate in "$gates_dir"/*.sh; do
-        [[ -f "$gate" ]] || continue
-        local gate_name=$(basename "$gate")
-
-        if ! bash "$gate" "$spore_id" 2>&1; then
-            pm_signal "GATE FAILED: $gate_name for $spore_id"
-            return 1
-        fi
-    done
-
-    return 0
-}
-
-# ============================================
-# PLAN & APPROVAL
-# ============================================
-
-get_docs_dir() {
-    echo "$(get_pm_dir)/docs"
-}
-
-pm_plan() {
-    local approvals=1
-    local spore_id=""
-
-    # Parse arguments
+    # Parse args
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --approvals)
-                shift
-                approvals="$1"
-                shift
+            --limit)
+                limit="$2"
+                shift 2
+                ;;
+            --roles)
+                IFS=',' read -ra roles <<< "$2"
+                shift 2
+                ;;
+            --rules)
+                rules="$2"
+                shift 2
                 ;;
             *)
-                spore_id="$1"
+                if [[ -z "$name" ]]; then
+                    name="$1"
+                fi
                 shift
                 ;;
         esac
     done
 
-    if [[ -z "$spore_id" ]]; then
-        echo "Usage: pm plan <spore-id> [--approvals N]" >&2
+    if [[ -z "$name" ]]; then
+        echo "Usage: pm phase \"Name\" --limit N --roles r1,r2" >&2
         exit 1
     fi
 
-    local spore=$(get_spore "$spore_id")
-    if [[ -z "$spore" ]]; then
-        echo "Spore not found: $spore_id" >&2
+    # Get task ID from environment (agent) or error
+    local task_id=$(get_agent_task)
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm phase can only be called by an owner agent" >&2
         exit 1
     fi
 
-    local docs_dir=$(get_docs_dir)
-    local spore_docs="$docs_dir/$spore_id"
-    local plan_file="$spore_docs/plan.md"
-
-    # Create docs directory
-    mkdir -p "$spore_docs"
-
-    # Create plan template if it doesn't exist
-    if [[ ! -f "$plan_file" ]]; then
-        local task=$(echo "$spore" | jq -r '.task')
-        cat > "$plan_file" << EOF
-# Plan for $spore_id
-
-## Task
-$task
-
-## Approach
-[Describe your approach here]
-
-## Changes
-[List the files/components you'll modify]
-
-## Risks
-[Any risks or concerns]
-
-## Testing
-[How will you verify this works]
-EOF
-        echo "Created plan template: $plan_file"
-        echo "Edit the plan, then run: pm plan $spore_id --approvals $approvals"
-        return 0
+    # Check limit on roles
+    if [[ ${#roles[@]} -gt 3 ]]; then
+        echo "Error: Maximum 3 roles per phase" >&2
+        exit 1
     fi
 
-    # Update spore with plan info and create review spore
-    local spores=$(get_spores_file)
-    local updated=$(echo "$spore" | jq -c \
-        --arg plan "docs/$spore_id/plan.md" \
-        --argjson approvals "$approvals" \
-        '.plan_file = $plan | .approvals_needed = $approvals | .status = "pending_approval"')
-    echo "$updated" >> "$spores"
+    # Create phase
+    local phase_id=$(create_phase "$task_id" "$name" "$limit" "${roles[@]}")
+    echo "Created phase: $phase_id ($name)"
+    echo "Message limit: $limit"
+    echo "Roles: ${roles[*]}"
 
-    # Create review spore
-    local review_id=$(gen_id)
-    local worker=$(get_worker_name)
-    local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-    local task=$(echo "$spore" | jq -r '.task')
+    # Spawn role agents
+    for role in "${roles[@]}"; do
+        local role_prompt="$PM_SCRIPT_DIR/prompts/roles/${role}.md"
+        if [[ ! -f "$role_prompt" ]]; then
+            echo "Warning: No prompt for role '$role' at $role_prompt" >&2
+            continue
+        fi
 
-    local review=$(jq -nc \
-        --arg id "$review_id" \
-        --arg reviews "$spore_id" \
-        --arg task "review plan for $spore_id: $task" \
-        --arg created "$timestamp" \
-        --arg creator "$worker" \
-        '{
-            id: $id,
-            type: "review",
-            reviews: $reviews,
-            parent: null,
-            children: [],
-            depends_on: [],
-            status: "raw",
-            phase: null,
-            task: $task,
-            claimed_by: null,
-            fruit: null,
-            plan_file: null,
-            approvals_needed: 0,
-            approvals: [],
-            rejections: [],
-            created: $created,
-            creator: $creator
-        }')
-    echo "$review" >> "$spores"
-
-    pm_signal "PLAN for $spore_id needs $approvals approval(s). Review: $review_id. Plan: $plan_file"
-
-    # Auto-spawn: spawn N workers to ensure reviewers exist
-    spawn_workers_background "$approvals"
-
-    echo "Plan submitted. Review spore: $review_id"
-    echo "Waiting for $approvals approval(s)"
+        local agent_name=$(gen_agent_name)
+        echo "Spawning @$agent_name as $role..."
+        spawn_agent "$agent_name" "$task_id" "$role_prompt" "$phase_id" "$role"
+    done
 }
 
-pm_approve() {
-    local spore_id="$1"
-    shift
-    local reason="$*"
+pm_chat() {
+    local task_id=$(get_agent_task)
+    local phase_id=$(get_agent_phase)
 
-    if [[ -z "$spore_id" ]]; then
-        echo "Usage: pm approve <spore-id> [reason]" >&2
+    # If not an agent, try to find active phase from args or show all
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm chat can only be called by an agent" >&2
         exit 1
     fi
 
-    local spore=$(get_spore "$spore_id")
-    if [[ -z "$spore" ]]; then
-        echo "Spore not found: $spore_id" >&2
-        exit 1
+    if [[ -z "$phase_id" ]]; then
+        # Owner - find active phase
+        local phase=$(get_active_phase "$task_id")
+        if [[ -z "$phase" ]]; then
+            echo "No active phase"
+            return 0
+        fi
+        phase_id=$(echo "$phase" | jq -r '.id')
     fi
 
-    local worker=$(get_worker_name)
-    local spores=$(get_spores_file)
+    local pm_dir=$(require_pm_dir)
+    local messages_file="$pm_dir/tasks/$task_id/phases/$phase_id/messages.jsonl"
+    local phase=$(get_phase "$task_id" "$phase_id")
+    local limit=$(echo "$phase" | jq -r '.message_limit')
+    local count=$(get_message_count "$task_id" "$phase_id")
+    local status=$(echo "$phase" | jq -r '.status')
 
-    # Add approval
-    local current_approvals=$(echo "$spore" | jq -r '.approvals | length')
-    local needed=$(echo "$spore" | jq -r '.approvals_needed')
+    echo "=== Phase: $(echo "$phase" | jq -r '.name') ($count/$limit messages) [$status] ==="
+    echo ""
 
-    local updated=$(echo "$spore" | jq -c --arg w "$worker" '.approvals += [$w]')
-    echo "$updated" >> "$spores"
-
-    local new_count=$((current_approvals + 1))
-    pm_signal "APPROVED $spore_id ($new_count/$needed): $reason"
-
-    # Check if we have enough approvals
-    if [[ $new_count -ge $needed ]]; then
-        update_spore "$spore_id" "status" "approved"
-        pm_signal "$spore_id fully approved - ready to execute"
+    if [[ -f "$messages_file" ]] && [[ -s "$messages_file" ]]; then
+        while IFS= read -r line; do
+            local author=$(echo "$line" | jq -r '.author')
+            local role=$(echo "$line" | jq -r '.role // empty')
+            local content=$(echo "$line" | jq -r '.content')
+            local role_str=""
+            [[ -n "$role" ]] && role_str=" ($role)"
+            echo "@${author}${role_str}: $content"
+        done < "$messages_file"
+    else
+        echo "(no messages yet)"
     fi
-
-    # Find and fruit the review spore
-    local review_spore=$(jq -rsc --arg reviews "$spore_id" '
-        group_by(.id) | map(last) | .[] |
-        select(.type == "review" and .reviews == $reviews and .status != "done")
-    ' "$spores" | head -1)
-
-    if [[ -n "$review_spore" ]]; then
-        local review_id=$(echo "$review_spore" | jq -r '.id')
-        # Mark review as claimed by this worker and fruit it
-        update_spore "$review_id" "claimed_by" "$worker"
-        local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-        local review_updated=$(echo "$review_spore" | jq -c \
-            --arg fruit "approved by @$worker: $reason" \
-            --arg time "$timestamp" \
-            --arg claimed "$worker" \
-            '.status = "done" | .phase = null | .fruit = $fruit | .completed = $time | .claimed_by = $claimed')
-        echo "$review_updated" >> "$spores"
-    fi
-
-    echo "approved $spore_id"
 }
 
-pm_reject() {
-    local spore_id="$1"
-    shift
-    local reason="$*"
+pm_say() {
+    local content="$1"
 
-    if [[ -z "$spore_id" ]]; then
-        echo "Usage: pm reject <spore-id> <reason>" >&2
+    if [[ -z "$content" ]]; then
+        echo "Usage: pm say \"message\"" >&2
         exit 1
     fi
 
-    if [[ -z "$reason" ]]; then
-        echo "Rejection reason required" >&2
+    local task_id=$(get_agent_task)
+    local phase_id=$(get_agent_phase)
+    local agent_name=$(get_agent_name)
+    local role=$(get_agent_role)
+
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm say can only be called by an agent" >&2
         exit 1
     fi
 
-    local spore=$(get_spore "$spore_id")
-    if [[ -z "$spore" ]]; then
-        echo "Spore not found: $spore_id" >&2
+    if [[ -z "$phase_id" ]]; then
+        # Owner - find active phase
+        local phase=$(get_active_phase "$task_id")
+        if [[ -z "$phase" ]]; then
+            echo "Error: No active phase" >&2
+            exit 1
+        fi
+        phase_id=$(echo "$phase" | jq -r '.id')
+    fi
+
+    # Check if phase is still active
+    local phase=$(get_phase "$task_id" "$phase_id")
+    local status=$(echo "$phase" | jq -r '.status')
+    if [[ "$status" != "active" ]]; then
+        echo "Error: Phase is closed" >&2
         exit 1
     fi
 
-    local worker=$(get_worker_name)
-    local spores=$(get_spores_file)
+    # Check message limit
+    local limit=$(echo "$phase" | jq -r '.message_limit')
+    local count=$(get_message_count "$task_id" "$phase_id")
 
-    # Add rejection
-    local rejection=$(jq -nc --arg w "$worker" --arg r "$reason" '{worker: $w, reason: $r}')
-    local updated=$(echo "$spore" | jq -c --argjson rej "$rejection" '.rejections += [$rej] | .status = "rejected"')
-    echo "$updated" >> "$spores"
+    if [[ $count -ge $limit ]]; then
+        echo "Error: Phase message limit reached ($count/$limit)" >&2
+        close_phase "$task_id" "$phase_id"
+        exit 1
+    fi
 
-    pm_signal "REJECTED $spore_id by @$worker: $reason"
-    echo "rejected $spore_id - author must revise plan"
+    # Append message
+    append_message "$task_id" "$phase_id" "$agent_name" "$role" "$content"
+
+    # Check if we just hit the limit
+    count=$((count + 1))
+    if [[ $count -ge $limit ]]; then
+        close_phase "$task_id" "$phase_id"
+        echo "Message posted ($count/$limit) - phase closed"
+    else
+        echo "Message posted ($count/$limit)"
+    fi
+}
+
+pm_end_phase() {
+    local task_id=$(get_agent_task)
+
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm end-phase can only be called by an owner agent" >&2
+        exit 1
+    fi
+
+    local phase=$(get_active_phase "$task_id")
+    if [[ -z "$phase" ]]; then
+        echo "Error: No active phase" >&2
+        exit 1
+    fi
+
+    local phase_id=$(echo "$phase" | jq -r '.id')
+    close_phase "$task_id" "$phase_id"
+    echo "Phase closed: $phase_id"
+}
+
+pm_done() {
+    local task_id=$(get_agent_task)
+    local agent_name=$(get_agent_name)
+
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm done can only be called by an owner agent" >&2
+        exit 1
+    fi
+
+    # Close any active phase
+    local phase=$(get_active_phase "$task_id")
+    if [[ -n "$phase" ]]; then
+        local phase_id=$(echo "$phase" | jq -r '.id')
+        close_phase "$task_id" "$phase_id"
+    fi
+
+    # Update task status
+    update_task_status "$task_id" "done"
+
+    # Unregister self
+    unregister_agent "$agent_name"
+
+    echo "Task complete: $task_id"
+}
+
+pm_extend_phase() {
+    local additional="$1"
+
+    if [[ -z "$additional" ]]; then
+        echo "Usage: pm extend-phase N" >&2
+        exit 1
+    fi
+
+    local task_id=$(get_agent_task)
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm extend-phase can only be called by an owner agent" >&2
+        exit 1
+    fi
+
+    local phase=$(get_active_phase "$task_id")
+    if [[ -z "$phase" ]]; then
+        echo "Error: No active phase" >&2
+        exit 1
+    fi
+
+    local phase_id=$(echo "$phase" | jq -r '.id')
+    local pm_dir=$(require_pm_dir)
+    local phase_file="$pm_dir/tasks/$task_id/phases/$phase_id/phase.json"
+
+    local current_limit=$(echo "$phase" | jq -r '.message_limit')
+    local new_limit=$((current_limit + additional))
+
+    # Check max limit
+    if [[ $new_limit -gt 50 ]]; then
+        echo "Error: Cannot exceed 50 messages per phase" >&2
+        exit 1
+    fi
+
+    local tmp=$(mktemp)
+    jq --argjson limit "$new_limit" '.message_limit = $limit' "$phase_file" > "$tmp"
+    mv "$tmp" "$phase_file"
+
+    echo "Phase limit extended: $current_limit -> $new_limit"
+}
+
+pm_history() {
+    # Placeholder - will implement later
+    echo "pm history not yet implemented"
+}
+
+pm_subtask() {
+    # Placeholder - will implement later
+    echo "pm subtask not yet implemented"
+}
+
+pm_wait_children() {
+    # Placeholder - will implement later
+    echo "pm wait-children not yet implemented"
+}
+
+pm_kill() {
+    # Placeholder - will implement later
+    echo "pm kill not yet implemented"
+}
+
+pm_dashboard() {
+    # Placeholder - will implement later
+    echo "pm dashboard not yet implemented"
 }
