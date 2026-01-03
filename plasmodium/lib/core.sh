@@ -206,6 +206,12 @@ pm_new() {
     else
         pm_signal "created spore $id: $task"
     fi
+
+    # Auto-spawn: if human creates a non-blocked spore, spawn a worker
+    if [[ "$worker" == "human" && "$status" != "blocked" ]]; then
+        spawn_workers_background 1
+    fi
+
     echo "$id"
 }
 
@@ -456,14 +462,16 @@ pm_ripen() {
 # WORKERS
 # ============================================
 
-pm_spawn() {
-    local name="${1:-}"
+# Generate a unique worker name
+gen_worker_name() {
+    local trees=("oak" "maple" "birch" "willow" "cedar" "pine" "ash" "elm" "beech" "hazel")
+    echo "${trees[$RANDOM % ${#trees[@]}]}_$(head -c 2 /dev/urandom | xxd -p)"
+}
 
-    # Generate name if not provided (tree names)
-    if [[ -z "$name" ]]; then
-        local trees=("oak" "maple" "birch" "willow" "cedar" "pine" "ash" "elm" "beech" "hazel")
-        name="${trees[$RANDOM % ${#trees[@]}]}_$$"
-    fi
+# Internal: spawn a worker (can be foreground or background)
+_spawn_worker() {
+    local name="$1"
+    local background="${2:-false}"
 
     local pm_dir=$(get_pm_dir)
     local project_root=$(find_root)
@@ -471,7 +479,7 @@ pm_spawn() {
 
     if [[ ! -f "$prompt_file" ]]; then
         echo "Worker prompt not found: $prompt_file" >&2
-        exit 1
+        return 1
     fi
 
     # Build the prompt with substitutions
@@ -489,14 +497,40 @@ pm_spawn() {
         '.workers[$name] = {started: $time, status: "active"}' \
         "$workers" > "$tmp" && mv "$tmp" "$workers"
 
-    echo "Spawning worker: @$name"
-    echo "---"
+    if [[ "$background" == "true" ]]; then
+        # Run in background, redirect output to log
+        local log_dir="$pm_dir/logs"
+        mkdir -p "$log_dir"
+        (
+            cd "$project_root"
+            PM_WORKER="$name" claude -p "$prompt" \
+                --model opus \
+                --dangerously-skip-permissions \
+                > "$log_dir/$name.log" 2>&1
+        ) &
+        echo "spawned @$name (pid $!)"
+    else
+        echo "Spawning worker: @$name"
+        echo "---"
+        cd "$project_root"
+        PM_WORKER="$name" exec claude -p "$prompt" \
+            --model opus \
+            --dangerously-skip-permissions
+    fi
+}
 
-    # Run claude code headless with worker identity
-    cd "$project_root"
-    PM_WORKER="$name" exec claude -p "$prompt" \
-        --model opus \
-        --dangerously-skip-permissions
+# Spawn worker(s) in background - used by hooks
+spawn_workers_background() {
+    local count="${1:-1}"
+    for ((i=0; i<count; i++)); do
+        local name=$(gen_worker_name)
+        _spawn_worker "$name" true
+    done
+}
+
+pm_spawn() {
+    local name="${1:-$(gen_worker_name)}"
+    _spawn_worker "$name" false
 }
 
 pm_status() {
@@ -674,6 +708,10 @@ EOF
     echo "$review" >> "$spores"
 
     pm_signal "PLAN for $spore_id needs $approvals approval(s). Review: $review_id. Plan: $plan_file"
+
+    # Auto-spawn: spawn N workers to ensure reviewers exist
+    spawn_workers_background "$approvals"
+
     echo "Plan submitted. Review spore: $review_id"
     echo "Waiting for $approvals approval(s)"
 }
