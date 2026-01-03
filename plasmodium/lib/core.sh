@@ -265,6 +265,16 @@ close_phase() {
     local tmp=$(mktemp)
     jq '.status = "closed"' "$phase_file" > "$tmp"
     mv "$tmp" "$phase_file"
+
+    # Unregister all role agents for this phase
+    local agents_file="$pm_dir/agents.json"
+    if [[ -f "$agents_file" ]]; then
+        tmp=$(mktemp)
+        jq --arg phase_id "$phase_id" \
+           '.agents = (.agents | to_entries | map(select(.value.phase_id != $phase_id)) | from_entries)' \
+           "$agents_file" > "$tmp"
+        mv "$tmp" "$agents_file"
+    fi
 }
 
 # ============================================================================
@@ -741,8 +751,116 @@ pm_wait_children() {
 }
 
 pm_kill() {
-    # Placeholder - will implement later
-    echo "pm kill not yet implemented"
+    local task_id="$1"
+    local restart=false
+
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --restart)
+                restart=true
+                shift
+                ;;
+            *)
+                if [[ -z "$task_id" || "$task_id" == --* ]]; then
+                    task_id="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$task_id" ]]; then
+        echo "Usage: pm kill <task-id> [--restart]" >&2
+        exit 1
+    fi
+
+    local pm_dir=$(require_pm_dir)
+    local task=$(get_task "$task_id")
+
+    if [[ -z "$task" ]]; then
+        echo "Error: Task not found: $task_id" >&2
+        exit 1
+    fi
+
+    local description=$(echo "$task" | jq -r '.description')
+
+    echo "Killing task: $task_id"
+
+    # Find and kill all agents for this task
+    local agents_file="$pm_dir/agents.json"
+    if [[ -f "$agents_file" ]]; then
+        local pids=$(jq -r --arg task_id "$task_id" \
+            '.agents[] | select(.task_id == $task_id) | .pid // empty' \
+            "$agents_file")
+
+        for pid in $pids; do
+            if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                echo "  Killing agent (pid: $pid)"
+                kill "$pid" 2>/dev/null || true
+            fi
+        done
+
+        # Remove agents from registry
+        local tmp=$(mktemp)
+        jq --arg task_id "$task_id" \
+           '.agents = (.agents | to_entries | map(select(.value.task_id != $task_id)) | from_entries)' \
+           "$agents_file" > "$tmp"
+        mv "$tmp" "$agents_file"
+    fi
+
+    if [[ "$restart" == true ]]; then
+        echo "Restarting task..."
+        # Reset task status
+        update_task_status "$task_id" "active"
+
+        # Spawn new owner
+        local owner=$(gen_agent_name)
+        local task_file="$pm_dir/tasks/$task_id/task.json"
+        local tmp=$(mktemp)
+        jq --arg owner "$owner" '.owner = $owner' "$task_file" > "$tmp"
+        mv "$tmp" "$task_file"
+
+        local prompt_file="$PM_SCRIPT_DIR/prompts/owner.md"
+        echo "Spawning new owner @$owner..."
+        spawn_agent "$owner" "$task_id" "$prompt_file"
+    else
+        # Mark task as killed
+        update_task_status "$task_id" "killed"
+        echo "Task killed"
+    fi
+}
+
+pm_clean() {
+    local pm_dir=$(require_pm_dir)
+    local agents_file="$pm_dir/agents.json"
+
+    if [[ ! -f "$agents_file" ]]; then
+        echo "No agents to clean"
+        return 0
+    fi
+
+    local cleaned=0
+    local names=$(jq -r '.agents | keys[]' "$agents_file")
+
+    for name in $names; do
+        local pid=$(jq -r --arg name "$name" '.agents[$name].pid // empty' "$agents_file")
+
+        # Check if process is dead
+        if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+            echo "Removing dead agent: @$name (pid: $pid)"
+            local tmp=$(mktemp)
+            jq --arg name "$name" 'del(.agents[$name])' "$agents_file" > "$tmp"
+            mv "$tmp" "$agents_file"
+            cleaned=$((cleaned + 1))
+        fi
+    done
+
+    if [[ $cleaned -eq 0 ]]; then
+        echo "No dead agents found"
+    else
+        echo "Cleaned $cleaned dead agent(s)"
+    fi
 }
 
 pm_dashboard() {

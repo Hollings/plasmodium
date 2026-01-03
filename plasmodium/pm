@@ -20,6 +20,10 @@ case "${1:-}" in
         shift
         pm_reset "$@"
         ;;
+    clean)
+        shift
+        pm_clean "$@"
+        ;;
 
     # Task management (human)
     task)
@@ -92,6 +96,7 @@ case "${1:-}" in
         echo "Setup:"
         echo "  init                      Initialize plasmodium in current project"
         echo "  reset                     Clear all state"
+        echo "  clean                     Remove dead agents from registry"
         echo "  dashboard                 Start web dashboard"
         echo ""
         echo "For Humans:"
