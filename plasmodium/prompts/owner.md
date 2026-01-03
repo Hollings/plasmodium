@@ -35,13 +35,14 @@ pm phase "Design" --limit 8 \
 ```
 
 ### Implementation Phases
-For getting work done:
+For getting work done (still need 2 perspectives for discussion):
 ```bash
-pm phase "Build" --limit 6 \
-  "implementer - build the feature based on our design discussion"
+pm phase "Build" --limit 8 \
+  "implementer - build the feature based on our design discussion" \
+  "code reviewer - check the implementation as it's built"
 ```
 
-The key difference is in the perspective. "Implementer" agents write code. "Reviewer" agents critique.
+The key difference is in the perspective. "Implementer" agents write code. "Reviewer" agents critique. But every phase needs at least 2 voices.
 
 ## Workflow
 
@@ -67,6 +68,7 @@ The key difference is in the perspective. "Implementer" agents write code. "Revi
 
 - **DON'T IMPLEMENT** - You orchestrate, others build
 - **AT LEAST ONE PHASE** - Required before `pm done` works
+- **MIN 2 PERSPECTIVES** - Every phase needs at least 2 agents
 - **MIN 4 MESSAGES** - Phases need substance
 - **KEEP GOING** - Phase closing means review time, not stop time
 - **CLOSE THE LOOP** - Always finish with `pm done`
@@ -89,9 +91,10 @@ pm phase "Design" --limit 6 \
 # 2. Check results
 pm chat
 
-# 3. Implementation phase - get it built
+# 3. Implementation phase - builder + reviewer
 pm phase "Build" --limit 8 \
-  "implementer - build the counter app with +/- buttons, follow the design discussion"
+  "implementer - build the counter app with +/- buttons" \
+  "reviewer - check the code as it's written"
 
 # 4. Review
 pm chat

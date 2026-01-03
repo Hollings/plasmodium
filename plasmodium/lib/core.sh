@@ -576,9 +576,9 @@ pm_phase() {
         exit 1
     fi
 
-    if [[ ${#perspectives[@]} -eq 0 ]]; then
-        echo "Error: At least one perspective required" >&2
-        echo "Example: pm phase \"Design\" --limit 8 \"skeptical architect\" \"junior dev\"" >&2
+    if [[ ${#perspectives[@]} -lt 2 ]]; then
+        echo "Error: At least 2 perspectives required for a discussion" >&2
+        echo "Example: pm phase \"Design\" --limit 8 \"skeptical architect\" \"eager builder\"" >&2
         exit 1
     fi
 
@@ -588,12 +588,24 @@ pm_phase() {
     echo "Message limit: $limit"
     echo "Agents: ${#perspectives[@]}"
 
+    # Collect agent names as we spawn them
+    local agent_names=()
+
     # Spawn agents with perspectives
     for perspective in "${perspectives[@]}"; do
         local agent_name=$(gen_agent_name)
+        agent_names+=("$agent_name")
         echo "Spawning @$agent_name: $perspective"
         spawn_agent_with_perspective "$agent_name" "$task_id" "$phase_id" "$perspective"
     done
+
+    # Post intro message listing who's in the room
+    local intro="Phase '$name' started. In this room:\n"
+    for i in "${!agent_names[@]}"; do
+        intro+="- @${agent_names[$i]}: ${perspectives[$i]}\n"
+    done
+    intro+="\nDiscuss and reach a conclusion."
+    append_message "$task_id" "$phase_id" "system" "" "$(echo -e "$intro")"
 }
 
 pm_chat() {
