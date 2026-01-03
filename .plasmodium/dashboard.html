@@ -120,6 +120,15 @@
             font-size: 0.85em;
         }
 
+        .worker-idle-time {
+            color: #6e7681;
+            font-size: 0.8em;
+        }
+
+        .worker.idle {
+            opacity: 0.7;
+        }
+
         /* Signals Panel */
         .signals-panel {
             grid-row: 2;
@@ -397,6 +406,19 @@
             return signals.reverse();
         }
 
+        function timeAgo(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+
         function renderWorkers(workers, spores) {
             const container = document.getElementById('workers');
 
@@ -413,14 +435,28 @@
                 }
             }
 
-            container.innerHTML = Object.entries(workers.workers).map(([name, info]) => {
+            // Sort: active workers first, then idle (sorted by most recently active)
+            const workerEntries = Object.entries(workers.workers).sort((a, b) => {
+                const aIdle = a[1].status === 'idle';
+                const bIdle = b[1].status === 'idle';
+                if (aIdle !== bIdle) return aIdle ? 1 : -1;
+                // Both same status, sort by lastActive descending
+                const aTime = a[1].lastActive || a[1].started || '';
+                const bTime = b[1].lastActive || b[1].started || '';
+                return bTime.localeCompare(aTime);
+            });
+
+            container.innerHTML = workerEntries.map(([name, info]) => {
                 const task = workerTasks.get(name);
                 const status = info.status || 'active';
+                const isIdle = status === 'idle';
+                const idleTime = isIdle && info.lastActive ? timeAgo(info.lastActive) : '';
                 return `
-                    <div class="worker">
+                    <div class="worker ${isIdle ? 'idle' : ''}">
                         <div class="worker-status ${status}"></div>
                         <span class="worker-name">@${name}</span>
                         ${task ? `<span class="worker-task">${truncate(task, 50)}</span>` : ''}
+                        ${isIdle && idleTime ? `<span class="worker-idle-time">${idleTime}</span>` : ''}
                     </div>
                 `;
             }).join('');

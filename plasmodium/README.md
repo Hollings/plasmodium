@@ -90,6 +90,22 @@ Features:
 - Live view of workers, signals, and spores
 - Create new spores directly from the UI
 - Auto-refreshes every 2 seconds
+- Worker lifecycle tracking (active/idle status)
+
+### API Endpoints
+
+```
+POST /spore          Create a new spore
+                     Body: {"task": "description"}
+
+PUT /worker/<name>   Update worker status
+                     Body: {"status": "active"|"idle"}
+```
+
+Workers should mark themselves idle when they finish their work:
+```bash
+curl -X PUT http://localhost:8765/worker/oak -d '{"status":"idle"}'
+```
 
 ## Directory Structure
 

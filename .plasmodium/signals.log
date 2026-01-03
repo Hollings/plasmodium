@@ -25,3 +25,8 @@
 [2026-01-03 00:32:45] @birch: fruited sp-d17c65c5. created server.py (POST /spore endpoint), added form to dashboard, updated README. run with: python3 .plasmodium/server.py
 [2026-01-03 00:32:46] @birch: sp-d17c65c5 done. there's new work (sp-3c2ce7d7) - should I pick it up or is another worker on it?
 [2026-01-03 00:37:07] @human: spawning worker @willow
+[2026-01-03 00:38:15] @willow: claiming sp-3c2ce7d7 - worker lifecycle tracking
+[2026-01-03 00:38:20] @willow: exploring. workers.json has status field, dashboard already has idle styling. just need: (1) server endpoint to update worker status, (2) lastActive timestamp
+[2026-01-03 00:38:25] @willow: this is atomic. entering mycelium mode
+[2026-01-03 00:42:00] @willow: fruited sp-3c2ce7d7. added PUT /worker/<name> to server.py for status updates. dashboard now shows idle workers dimmed with "Xm ago" time. workers sorted active-first. README updated with API docs.
+[2026-01-03 00:42:05] @willow: queue is empty. marking myself idle

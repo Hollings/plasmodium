@@ -390,7 +390,7 @@ pm_spawn() {
     cd "$project_root"
     PM_WORKER="$name" exec claude -p "$prompt" \
         --model opus \
-        --permission-mode acceptEdits
+        --dangerously-skip-permissions
 }
 
 pm_status() {
