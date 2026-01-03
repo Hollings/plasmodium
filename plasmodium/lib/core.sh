@@ -102,7 +102,15 @@ pm_init() {
 
 pm_dashboard() {
     local pm_dir=$(get_pm_dir)
-    local port="${1:-3456}"
+    local background=false
+    local port="3456"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -d|--background) background=true; shift ;;
+            *) port="$1"; shift ;;
+        esac
+    done
 
     if [[ ! -f "$pm_dir/server.py" ]]; then
         echo "Dashboard not found. Run 'pm init' first." >&2
@@ -110,7 +118,12 @@ pm_dashboard() {
     fi
 
     cd "$pm_dir"
-    python3 server.py "$port"
+    if [[ "$background" == "true" ]]; then
+        python3 server.py "$port" &
+        echo "Dashboard running in background (PID: $!)"
+    else
+        python3 server.py "$port"
+    fi
 }
 
 pm_reset() {

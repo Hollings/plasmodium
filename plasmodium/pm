@@ -96,7 +96,7 @@ case "${1:-}" in
         echo ""
         echo "Setup:"
         echo "  init [path]         Initialize plasmodium in a project"
-        echo "  dashboard [port]    Start the dashboard (default: 3456)"
+        echo "  dashboard [-d] [port]  Start dashboard (-d for background)"
         echo "  reset               Clear all spores, workers, signals"
         echo ""
         echo "Work:"
