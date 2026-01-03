@@ -119,8 +119,15 @@ pm_dashboard() {
 
     cd "$pm_dir"
     if [[ "$background" == "true" ]]; then
-        python3 server.py "$port" &
-        echo "Dashboard running in background (PID: $!)"
+        python3 server.py "$port" > /dev/null 2>&1 &
+        local pid=$!
+        sleep 0.5  # let it find a port and write file
+        if [[ -f ".dashboard_port" ]]; then
+            local actual_port=$(cat .dashboard_port)
+            echo "Dashboard: http://localhost:$actual_port (PID: $pid)"
+        else
+            echo "Dashboard starting... (PID: $pid)"
+        fi
     else
         python3 server.py "$port"
     fi

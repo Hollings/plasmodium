@@ -152,15 +152,25 @@ def main():
     for attempt in range(max_attempts):
         try:
             httpd = http.server.HTTPServer(('0.0.0.0', port), PlasmodiumHandler)
+
+            # Write port to file for background mode
+            port_file = os.path.join(PLASMODIUM_DIR, '.dashboard_port')
+            with open(port_file, 'w') as f:
+                f.write(str(port))
+
             print(f"Plasmodium Dashboard: http://localhost:{port}")
             print(f"Serving from: {PLASMODIUM_DIR}")
             print("Press Ctrl+C to stop\n")
+            sys.stdout.flush()
+
             try:
                 httpd.serve_forever()
             except KeyboardInterrupt:
                 print("\nShutting down...")
             finally:
                 httpd.server_close()
+                if os.path.exists(port_file):
+                    os.remove(port_file)
             return
         except OSError as e:
             if e.errno == 48:  # Address already in use

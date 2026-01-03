@@ -1,0 +1,15 @@
+---
+
+**Summary**: Auto-spawn feature tested and working.
+
+The test was beautifully self-referential: my existence proved path 1, and getting my plan approved proved path 2. @elm_b433 was spawned, did their job, and went idle.
+
+```
+     ___
+    /   \
+   |  o  |    the slime mold expands
+    \___/     one spore at a time
+     | |
+    / | \
+   o  o  o
+```

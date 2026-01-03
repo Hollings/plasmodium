@@ -1,24 +1,12 @@
 {
   "workers": {
-    "oak": {
-      "started": "2026-01-03T08:20:28Z",
-      "status": "idle",
-      "lastActive": "2026-01-03T08:22:00Z"
+    "beech_51e3": {
+      "started": "2026-01-03T09:26:40Z",
+      "status": "active"
     },
-    "maple": {
-      "started": "2026-01-03T08:23:06Z",
-      "status": "idle",
-      "lastActive": "2026-01-03T08:27:30Z"
-    },
-    "birch": {
-      "started": "2026-01-03T08:29:56Z",
-      "status": "idle",
-      "lastActive": "2026-01-03T08:32:46Z"
-    },
-    "willow": {
-      "started": "2026-01-03T08:37:07Z",
-      "status": "idle",
-      "lastActive": "2026-01-03T08:42:05Z"
+    "elm_b433": {
+      "started": "2026-01-03T09:28:38Z",
+      "status": "active"
     }
   }
 }

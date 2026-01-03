@@ -1,32 +1,20 @@
 # Plasmodium Signal Log
 # Workers communicate here
 ---
-[2026-01-03 00:20:22] @human: created spore sp-36d3d07e: add a README.md to the plasmodium folder explaining what it is
-[2026-01-03 00:20:28] @human: spawning worker @oak
-[2026-01-03 00:21:15] @oak: claimed sp-36d3d07e
-[2026-01-03 00:21:15] @oak: executing sp-36d3d07e (mycelium mode) - small atomic task, writing README now
-[2026-01-03 00:22:00] @oak: fruited sp-36d3d07e: created README.md with concepts, workflow diagram, CLI usage, and slime mold metaphor
-[2026-01-03 00:22:00] @oak: queue is empty. ready for more work or shutting down
-[2026-01-03 00:23:00] @human: created spore sp-1ab53026: create a simple demo web app that shows plasmodium status in real-time
-[2026-01-03 00:23:06] @human: spawning worker @maple
-[2026-01-03 00:23:45] @maple: claiming sp-1ab53026 - real-time plasmodium status app
-[2026-01-03 00:23:46] @maple: entering plasmodium mode - exploring what this needs
-[2026-01-03 00:24:30] @maple: this is atomic. single HTML file dashboard. data: spores.jsonl, signals.log, workers.json. will show spore tree, signal feed, worker status. all inline JS/CSS per project constraints.
-[2026-01-03 00:24:31] @maple: entering mycelium mode - writing the dashboard
-[2026-01-03 00:26:45] @maple: created dashboard.html - dark theme, 3-panel layout (workers, signals, spores), auto-refresh every 2s. serve with: python3 -m http.server 8765 --directory .plasmodium
-[2026-01-03 00:26:46] @maple: fruiting sp-1ab53026
-[2026-01-03 00:27:30] @maple: sp-1ab53026 done. queue empty. waiting for more work or shutdown
-[2026-01-03 00:29:49] @human: created spore sp-d17c65c5: add a task submission form to the dashboard - let users type a task description and submit it to create a new spore
-[2026-01-03 00:29:56] @human: spawning worker @birch
-[2026-01-03 00:30:15] @birch: claiming sp-d17c65c5 - task submission form
-[2026-01-03 00:30:16] @birch: entering plasmodium mode. dashboard is static html - browser can't write files. two options: (1) form that copies pm command to clipboard, or (2) add small server script. going with option 2 - more useful.
-[2026-01-03 00:30:45] @birch: task is atomic. entering mycelium mode. plan: (1) add form to dashboard html, (2) create server.py that serves files + handles POST /spore, (3) update README with new serve command
-[2026-01-03 00:32:35] @human: created spore sp-3c2ce7d7: add worker lifecycle tracking - workers should mark themselves idle when done, and pm status should show active vs idle workers
-[2026-01-03 00:32:45] @birch: fruited sp-d17c65c5. created server.py (POST /spore endpoint), added form to dashboard, updated README. run with: python3 .plasmodium/server.py
-[2026-01-03 00:32:46] @birch: sp-d17c65c5 done. there's new work (sp-3c2ce7d7) - should I pick it up or is another worker on it?
-[2026-01-03 00:37:07] @human: spawning worker @willow
-[2026-01-03 00:38:15] @willow: claiming sp-3c2ce7d7 - worker lifecycle tracking
-[2026-01-03 00:38:20] @willow: exploring. workers.json has status field, dashboard already has idle styling. just need: (1) server endpoint to update worker status, (2) lastActive timestamp
-[2026-01-03 00:38:25] @willow: this is atomic. entering mycelium mode
-[2026-01-03 00:42:00] @willow: fruited sp-3c2ce7d7. added PUT /worker/<name> to server.py for status updates. dashboard now shows idle workers dimmed with "Xm ago" time. workers sorted active-first. README updated with API docs.
-[2026-01-03 00:42:05] @willow: queue is empty. marking myself idle
+[2026-01-03 01:26:40] @human: created spore sp-28586bb6: Test auto-spawn feature
+[2026-01-03 01:26:40] @human: spawning worker @beech_51e3
+[2026-01-03 01:27:21] @beech_51e3: claimed sp-28586bb6
+[2026-01-03 01:27:28] @beech_51e3: exploring sp-28586bb6 (plasmodium mode)
+[2026-01-03 01:27:35] @beech_51e3: @beech_51e3 exploring sp-28586bb6: need to understand what auto-spawn is. checking codebase for spawn functionality
+[2026-01-03 01:27:56] @beech_51e3: @beech_51e3 found the auto-spawn code: lines 210-213 spawn worker when human creates spore, lines 712-713 spawn N workers when plan needs approvals. need to test both paths.
+[2026-01-03 01:28:27] @beech_51e3: @beech_51e3 submitting plan. meta-point: my own existence proves path 1 works. submitting with --approvals 1 to test path 2 (spawns reviewer for this plan)
+[2026-01-03 01:28:38] @beech_51e3: PLAN for sp-28586bb6 needs 1 approval(s). Review: sp-b87f4865. Plan: /Users/john/the-project/.plasmodium/docs/sp-28586bb6/plan.md
+[2026-01-03 01:28:38] @beech_51e3: spawning worker @elm_b433
+[2026-01-03 01:29:23] @elm_b433: claimed sp-b87f4865
+[2026-01-03 01:29:29] @elm_b433: @elm_b433: reviewed plan for sp-28586bb6. logic is sound - meta-test (beech exists = path 1 works) is clever. code references check out. approving.
+[2026-01-03 01:29:34] @elm_b433: APPROVED sp-28586bb6 (1/1): meta-test proves path 1 (human creates spore -> spawns worker). plan for testing path 2 is straightforward. no code changes, just verification. approved.
+[2026-01-03 01:29:34] @elm_b433: sp-28586bb6 fully approved - ready to execute
+[2026-01-03 01:29:45] @elm_b433: @elm_b433: no pending work. waiting for new spores or reviews.
+[2026-01-03 01:30:09] @beech_51e3: executing sp-28586bb6 (mycelium mode)
+[2026-01-03 01:30:17] @beech_51e3: fruited sp-28586bb6: Auto-spawn verified: (1) human creates spore -> spawns worker (beech_51e3), (2) pm plan --approvals N -> spawns N workers (elm_b433). Both paths working.
+[2026-01-03 01:30:26] @beech_51e3: @beech_51e3: test complete. no more work available. signing off.
