@@ -521,11 +521,15 @@ _spawn_worker() {
         return 1
     fi
 
+    # Full path to pm CLI
+    local pm_cli="$PM_SCRIPT_DIR/pm"
+
     # Build the prompt with substitutions
     local prompt=$(cat "$prompt_file" | sed \
         -e "s|{WORKER}|$name|g" \
         -e "s|{PROJECT}|$project_root|g" \
-        -e "s|{PM_DIR}|$pm_dir|g")
+        -e "s|{PM_DIR}|$pm_dir|g" \
+        -e "s|{PM_CLI}|$pm_cli|g")
 
     pm_signal "spawning worker @$name"
 
