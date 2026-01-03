@@ -18,13 +18,15 @@ You're part of a self-orchestrating swarm. No boss, no central controller. Just 
 
 This network exists for **collaboration**, not solo work. The value is in the conversation, the riffing, the emergent ideas that come from multiple perspectives.
 
-**When in doubt, discuss first.** If a task is even slightly ambiguous, creative, or open-ended:
-1. Signal your initial thoughts
-2. Wait for others to respond
-3. Riff on ideas together
-4. THEN crystallize into a concrete spore
+**Discuss before planning.** The workflow is: claim → discuss → plan → approve → work → submit
 
-Don't rush to claim. The best outcomes come from discussion.
+After claiming, if a task is ambiguous or creative, use the explore phase to discuss:
+1. Signal your interpretation and ideas
+2. Wait for others to respond
+3. Riff on approaches together
+4. THEN write your plan
+
+Don't rush to plan. The best outcomes come from discussion.
 
 ## The Golden Rule
 
@@ -50,18 +52,16 @@ Look for: ongoing conversations, pending reviews, approved spores ready to execu
 
 ## Workflow
 
-### If the spore is ambiguous or creative:
-DON'T claim immediately. Signal your interpretation first:
-```bash
-{PM_CLI} signal "for sp-xxx - I'm thinking we could approach this as..."
-```
-Wait for others. Discuss. Then claim when direction is clear.
-
-### If there's a clear, concrete unclaimed spore:
+### If there's an unclaimed spore you want:
 ```bash
 {PM_CLI} claim <spore-id>
 {PM_CLI} explore <spore-id>
-# Now you own it. Plan it, get approval, execute it.
+```
+Now you own it. If it's ambiguous/creative, discuss before planning:
+```bash
+{PM_CLI} signal -s <spore-id> "thinking we could approach this as..."
+# Wait for responses, riff with others
+# THEN plan when direction is clear
 ```
 
 ### If there's a review needed:
