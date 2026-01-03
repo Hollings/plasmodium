@@ -85,7 +85,7 @@ pm_init() {
 
     # Copy dashboard files from plasmodium source
     if [[ -f "$PM_SCRIPT_DIR/dashboard/index.html" ]]; then
-        cp "$PM_SCRIPT_DIR/dashboard/index.html" "$pm_dir/dashboard.html"
+        cp "$PM_SCRIPT_DIR/dashboard/index.html" "$pm_dir/index.html"
         cp "$PM_SCRIPT_DIR/dashboard/server.py" "$pm_dir/server.py"
     fi
 
