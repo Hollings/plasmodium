@@ -392,6 +392,60 @@ spawn_agent() {
     echo "$name (pid: $pid)"
 }
 
+spawn_agent_with_perspective() {
+    local name="$1"
+    local task_id="$2"
+    local phase_id="$3"
+    local perspective="$4"
+
+    local pm_dir=$(require_pm_dir)
+    local project_dir=$(get_project_dir)
+    local log_dir="$pm_dir/logs"
+    mkdir -p "$log_dir"
+
+    # Read generic agent prompt
+    local prompt_file="$PM_SCRIPT_DIR/prompts/agent.md"
+    if [[ ! -f "$prompt_file" ]]; then
+        echo "Error: Agent prompt not found at $prompt_file" >&2
+        return 1
+    fi
+
+    local prompt=$(cat "$prompt_file")
+    prompt="${prompt//\{NAME\}/$name}"
+    prompt="${prompt//\{PERSPECTIVE\}/$perspective}"
+
+    # Get task description
+    local task=$(get_task "$task_id")
+    local task_desc=$(echo "$task" | jq -r '.description')
+    prompt="${prompt//\{TASK_DESCRIPTION\}/$task_desc}"
+
+    # Get phase info
+    local phase=$(get_phase "$task_id" "$phase_id")
+    local phase_name=$(echo "$phase" | jq -r '.name')
+    local phase_limit=$(echo "$phase" | jq -r '.message_limit')
+    prompt="${prompt//\{PHASE_NAME\}/$phase_name}"
+    prompt="${prompt//\{PHASE_LIMIT\}/$phase_limit}"
+
+    # Spawn Claude Code in background
+    (
+        cd "$project_dir"
+        PM_AGENT_NAME="$name" \
+        PM_TASK_ID="$task_id" \
+        PM_PHASE_ID="$phase_id" \
+        PM_ROLE="$perspective" \
+        PM_CLI="$PM_CLI" \
+        claude --dangerously-skip-permissions -p "$prompt" \
+            > "$log_dir/${name}.log" 2>&1
+    ) &
+
+    local pid=$!
+
+    # Register agent (use perspective as role for display)
+    register_agent "$name" "$task_id" "$phase_id" "$perspective" "$pid"
+
+    echo "$name (pid: $pid)"
+}
+
 # ============================================================================
 # Command Implementations
 # ============================================================================
@@ -483,8 +537,7 @@ pm_status() {
 pm_phase() {
     local name=""
     local limit=10
-    local roles=()
-    local rules=""
+    local perspectives=()
 
     # Parse args
     while [[ $# -gt 0 ]]; do
@@ -493,17 +546,12 @@ pm_phase() {
                 limit="$2"
                 shift 2
                 ;;
-            --roles)
-                IFS=',' read -ra roles <<< "$2"
-                shift 2
-                ;;
-            --rules)
-                rules="$2"
-                shift 2
-                ;;
             *)
                 if [[ -z "$name" ]]; then
                     name="$1"
+                else
+                    # Additional positional args are perspectives
+                    perspectives+=("$1")
                 fi
                 shift
                 ;;
@@ -511,7 +559,7 @@ pm_phase() {
     done
 
     if [[ -z "$name" ]]; then
-        echo "Usage: pm phase \"Name\" --limit N --roles r1,r2" >&2
+        echo "Usage: pm phase \"Name\" --limit N \"perspective 1\" \"perspective 2\"" >&2
         exit 1
     fi
 
@@ -522,29 +570,29 @@ pm_phase() {
         exit 1
     fi
 
-    # Check limit on roles
-    if [[ ${#roles[@]} -gt 3 ]]; then
-        echo "Error: Maximum 3 roles per phase" >&2
+    # Check limit on perspectives
+    if [[ ${#perspectives[@]} -gt 3 ]]; then
+        echo "Error: Maximum 3 agents per phase" >&2
         exit 1
     fi
 
-    # Create phase
-    local phase_id=$(create_phase "$task_id" "$name" "$limit" "${roles[@]}")
+    if [[ ${#perspectives[@]} -eq 0 ]]; then
+        echo "Error: At least one perspective required" >&2
+        echo "Example: pm phase \"Design\" --limit 8 \"skeptical architect\" \"junior dev\"" >&2
+        exit 1
+    fi
+
+    # Create phase (store perspectives as roles for backwards compat)
+    local phase_id=$(create_phase "$task_id" "$name" "$limit" "${perspectives[@]}")
     echo "Created phase: $phase_id ($name)"
     echo "Message limit: $limit"
-    echo "Roles: ${roles[*]}"
+    echo "Agents: ${#perspectives[@]}"
 
-    # Spawn role agents
-    for role in "${roles[@]}"; do
-        local role_prompt="$PM_SCRIPT_DIR/prompts/roles/${role}.md"
-        if [[ ! -f "$role_prompt" ]]; then
-            echo "Warning: No prompt for role '$role' at $role_prompt" >&2
-            continue
-        fi
-
+    # Spawn agents with perspectives
+    for perspective in "${perspectives[@]}"; do
         local agent_name=$(gen_agent_name)
-        echo "Spawning @$agent_name as $role..."
-        spawn_agent "$agent_name" "$task_id" "$role_prompt" "$phase_id" "$role"
+        echo "Spawning @$agent_name: $perspective"
+        spawn_agent_with_perspective "$agent_name" "$task_id" "$phase_id" "$perspective"
     done
 }
 
@@ -673,10 +721,63 @@ pm_end_phase() {
 pm_done() {
     local task_id=$(get_agent_task)
     local agent_name=$(get_agent_name)
+    local force=false
+
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --force) force=true; shift ;;
+            *) shift ;;
+        esac
+    done
 
     if [[ -z "$task_id" ]]; then
         echo "Error: pm done can only be called by an owner agent" >&2
         exit 1
+    fi
+
+    local pm_dir=$(require_pm_dir)
+    local phases_dir="$pm_dir/tasks/$task_id/phases"
+
+    # Check phase requirements (unless --force)
+    if [[ "$force" != true ]]; then
+        # Count closed phases
+        local phase_count=0
+        if [[ -d "$phases_dir" ]]; then
+            for phase_dir in "$phases_dir"/*/; do
+                if [[ -f "${phase_dir}phase.json" ]]; then
+                    local status=$(jq -r '.status' "${phase_dir}phase.json")
+                    if [[ "$status" == "closed" ]]; then
+                        phase_count=$((phase_count + 1))
+                    fi
+                fi
+            done
+        fi
+
+        if [[ $phase_count -eq 0 ]]; then
+            echo "Error: At least one discussion phase required before completing." >&2
+            echo "" >&2
+            echo "Create a phase to get other perspectives:" >&2
+            echo "  pm phase \"Design\" --limit 6 \"skeptical reviewer\" \"eager builder\"" >&2
+            echo "" >&2
+            echo "Or use --force to skip (not recommended):" >&2
+            echo "  pm done --force" >&2
+            exit 1
+        fi
+
+        # Check minimum messages in phases
+        local min_messages=4
+        for phase_dir in "$phases_dir"/*/; do
+            if [[ -f "${phase_dir}messages.jsonl" ]]; then
+                local msg_count=$(wc -l < "${phase_dir}messages.jsonl" | tr -d ' ')
+                if [[ $msg_count -lt $min_messages ]]; then
+                    local phase_name=$(jq -r '.name' "${phase_dir}phase.json")
+                    echo "Error: Phase '$phase_name' has only $msg_count messages (minimum: $min_messages)" >&2
+                    echo "Discussions need substance. Extend the phase or create a new one." >&2
+                    exit 1
+                fi
+            fi
+        done
     fi
 
     # Close any active phase
