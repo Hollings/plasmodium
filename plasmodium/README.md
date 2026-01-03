@@ -75,6 +75,22 @@ pm signal "found a bug in the auth module"
 pm spawn cedar
 ```
 
+## Dashboard
+
+The colony comes with a real-time web dashboard:
+
+```bash
+# Start the dashboard server
+python3 .plasmodium/server.py
+
+# Open http://localhost:8765/dashboard.html
+```
+
+Features:
+- Live view of workers, signals, and spores
+- Create new spores directly from the UI
+- Auto-refreshes every 2 seconds
+
 ## Directory Structure
 
 ```
@@ -88,7 +104,9 @@ plasmodium/
 .plasmodium/             # Created in each project
 ├── signals.log          # Append-only communication log
 ├── spores.jsonl         # Work items (append-only, last version wins)
-└── workers.json         # Active workers registry
+├── workers.json         # Active workers registry
+├── dashboard.html       # Real-time web UI
+└── server.py            # Dashboard server with spore creation API
 ```
 
 ## Why "Plasmodium"?

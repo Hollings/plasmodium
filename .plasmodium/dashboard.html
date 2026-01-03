@@ -222,6 +222,79 @@
             font-size: 0.8em;
             color: #484f58;
         }
+
+        /* Task Form */
+        .task-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .task-input {
+            flex: 1;
+            padding: 12px 15px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-family: inherit;
+            font-size: 0.95em;
+        }
+
+        .task-input:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+        }
+
+        .task-input::placeholder {
+            color: #6e7681;
+        }
+
+        .task-submit {
+            padding: 12px 24px;
+            background: #238636;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.95em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .task-submit:hover {
+            background: #2ea043;
+        }
+
+        .task-submit:disabled {
+            background: #21262d;
+            color: #6e7681;
+            cursor: not-allowed;
+        }
+
+        .form-message {
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .form-message.success {
+            display: block;
+            background: #1c4428;
+            border: 1px solid #238636;
+            color: #3fb950;
+        }
+
+        .form-message.error {
+            display: block;
+            background: #3d1a1a;
+            border: 1px solid #f85149;
+            color: #f85149;
+        }
     </style>
 </head>
 <body>
@@ -230,6 +303,15 @@
         <h1>Plasmodium Network</h1>
         <span class="refresh-info">Auto-refreshes every 2s</span>
     </div>
+
+    <div id="form-message" class="form-message"></div>
+
+    <form class="task-form" id="task-form">
+        <input type="text" class="task-input" id="task-input"
+               placeholder="Describe a new task for the colony..."
+               autocomplete="off">
+        <button type="submit" class="task-submit" id="task-submit">Create Spore</button>
+    </form>
 
     <div class="grid">
         <div class="panel workers-panel">
@@ -422,6 +504,52 @@
 
         refresh();
         setInterval(refresh, 2000);
+
+        // Task submission form
+        const form = document.getElementById('task-form');
+        const input = document.getElementById('task-input');
+        const submitBtn = document.getElementById('task-submit');
+        const message = document.getElementById('form-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const task = input.value.trim();
+            if (!task) return;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            message.className = 'form-message';
+            message.textContent = '';
+
+            try {
+                const res = await fetch('/spore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    message.className = 'form-message success';
+                    message.textContent = `Spore ${data.id} created! Workers will pick it up.`;
+                    input.value = '';
+                    refresh();
+                } else {
+                    throw new Error(`Server responded ${res.status}`);
+                }
+            } catch (err) {
+                message.className = 'form-message error';
+                message.textContent = `Failed to create spore: ${err.message}. Make sure server.py is running.`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Spore';
+            }
+
+            // Hide message after 5s
+            setTimeout(() => {
+                message.className = 'form-message';
+            }, 5000);
+        });
     </script>
 </body>
 </html>

@@ -16,3 +16,12 @@
 [2026-01-03 00:26:45] @maple: created dashboard.html - dark theme, 3-panel layout (workers, signals, spores), auto-refresh every 2s. serve with: python3 -m http.server 8765 --directory .plasmodium
 [2026-01-03 00:26:46] @maple: fruiting sp-1ab53026
 [2026-01-03 00:27:30] @maple: sp-1ab53026 done. queue empty. waiting for more work or shutdown
+[2026-01-03 00:29:49] @human: created spore sp-d17c65c5: add a task submission form to the dashboard - let users type a task description and submit it to create a new spore
+[2026-01-03 00:29:56] @human: spawning worker @birch
+[2026-01-03 00:30:15] @birch: claiming sp-d17c65c5 - task submission form
+[2026-01-03 00:30:16] @birch: entering plasmodium mode. dashboard is static html - browser can't write files. two options: (1) form that copies pm command to clipboard, or (2) add small server script. going with option 2 - more useful.
+[2026-01-03 00:30:45] @birch: task is atomic. entering mycelium mode. plan: (1) add form to dashboard html, (2) create server.py that serves files + handles POST /spore, (3) update README with new serve command
+[2026-01-03 00:32:35] @human: created spore sp-3c2ce7d7: add worker lifecycle tracking - workers should mark themselves idle when done, and pm status should show active vs idle workers
+[2026-01-03 00:32:45] @birch: fruited sp-d17c65c5. created server.py (POST /spore endpoint), added form to dashboard, updated README. run with: python3 .plasmodium/server.py
+[2026-01-03 00:32:46] @birch: sp-d17c65c5 done. there's new work (sp-3c2ce7d7) - should I pick it up or is another worker on it?
+[2026-01-03 00:37:07] @human: spawning worker @willow

@@ -7,6 +7,14 @@
     "maple": {
       "started": "2026-01-03T08:23:06Z",
       "status": "active"
+    },
+    "birch": {
+      "started": "2026-01-03T08:29:56Z",
+      "status": "active"
+    },
+    "willow": {
+      "started": "2026-01-03T08:37:07Z",
+      "status": "active"
     }
   }
 }
