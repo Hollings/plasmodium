@@ -125,6 +125,7 @@ pm_dashboard() {
         if [[ -f ".dashboard_port" ]]; then
             local actual_port=$(cat .dashboard_port)
             echo "Dashboard: http://localhost:$actual_port (PID: $pid)"
+            open "http://localhost:$actual_port" 2>/dev/null || true
         else
             echo "Dashboard starting... (PID: $pid)"
         fi
