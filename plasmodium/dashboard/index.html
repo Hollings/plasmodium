@@ -567,9 +567,9 @@
                 if (res.ok) {
                     const data = await res.json();
                     message.className = 'form-message success';
-                    message.textContent = `Spore ${data.id} created! Workers will pick it up.`;
+                    message.textContent = `Spore ${data.id} created!`;
                     input.value = '';
-                    refresh();
+                    setTimeout(() => location.reload(), 500);
                 } else {
                     throw new Error(`Server responded ${res.status}`);
                 }
