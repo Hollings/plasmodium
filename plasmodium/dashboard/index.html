@@ -264,6 +264,100 @@
             color: #6e7681;
         }
 
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #8b949e;
+        }
+
+        .modal-close:hover {
+            color: #c9d1d9;
+        }
+
+        .modal-header {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .modal-header h2 {
+            font-size: 1.1em;
+            color: #58a6ff;
+            margin-bottom: 5px;
+        }
+
+        .modal-header .status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+
+        .modal-section {
+            margin-bottom: 15px;
+        }
+
+        .modal-section h3 {
+            font-size: 0.85em;
+            color: #8b949e;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .modal-section pre {
+            background: #0d1117;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+        }
+
+        .modal-section p {
+            font-size: 0.9em;
+        }
+
+        .spore {
+            cursor: pointer;
+        }
+
+        .spore:hover {
+            border-color: #58a6ff;
+        }
+
         .refresh-info {
             font-size: 0.8em;
             color: #484f58;
@@ -351,6 +445,14 @@
     </div>
 
     <div id="form-message" class="form-message"></div>
+
+    <!-- Spore Modal -->
+    <div id="spore-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
 
     <form class="task-form" id="task-form">
         <input type="text" class="task-input" id="task-input"
@@ -545,7 +647,10 @@
             `).join('');
         }
 
+        let sporesCache = [];
+
         function renderSpores(spores) {
+            sporesCache = spores;
             const container = document.getElementById('spores');
 
             if (spores.length === 0) {
@@ -567,7 +672,7 @@
             });
 
             container.innerHTML = sorted.map(s => `
-                <div class="spore status-${s.status}">
+                <div class="spore status-${s.status}" data-id="${s.id}">
                     <div class="spore-header">
                         <span class="spore-id">${s.id}</span>
                         <span class="spore-status ${s.status}">${s.status}</span>
@@ -580,7 +685,80 @@
                     ${s.fruit ? `<div class="spore-fruit">${escapeHtml(s.fruit)}</div>` : ''}
                 </div>
             `).join('');
+
+            // Add click handlers
+            container.querySelectorAll('.spore').forEach(el => {
+                el.addEventListener('click', () => openSporeModal(el.dataset.id));
+            });
         }
+
+        async function openSporeModal(id) {
+            const spore = sporesCache.find(s => s.id === id);
+            if (!spore) return;
+
+            const modal = document.getElementById('spore-modal');
+            const body = document.getElementById('modal-body');
+
+            // Try to fetch plan if exists
+            let planContent = null;
+            if (spore.plan_file) {
+                try {
+                    planContent = await fetchText(spore.plan_file);
+                } catch (e) {}
+            }
+
+            body.innerHTML = `
+                <div class="modal-header">
+                    <h2>${spore.id}</h2>
+                    <span class="spore-status ${spore.status}">${spore.status}</span>
+                </div>
+
+                <div class="modal-section">
+                    <h3>Task</h3>
+                    <p>${escapeHtml(spore.task)}</p>
+                </div>
+
+                <div class="modal-section">
+                    <h3>Details</h3>
+                    <p>
+                        <strong>Claimed by:</strong> ${spore.claimed_by ? '@' + spore.claimed_by : 'unclaimed'}<br>
+                        <strong>Phase:</strong> ${spore.phase || 'none'}<br>
+                        <strong>Type:</strong> ${spore.type || 'task'}<br>
+                        ${spore.depends_on?.filter(d => d).length ? `<strong>Depends on:</strong> ${spore.depends_on.join(', ')}<br>` : ''}
+                        ${spore.approvals?.length ? `<strong>Approvals:</strong> ${spore.approvals.join(', ')}<br>` : ''}
+                    </p>
+                </div>
+
+                ${planContent ? `
+                <div class="modal-section">
+                    <h3>Plan</h3>
+                    <pre>${escapeHtml(planContent)}</pre>
+                </div>
+                ` : ''}
+
+                ${spore.fruit ? `
+                <div class="modal-section">
+                    <h3>Result</h3>
+                    <pre>${escapeHtml(spore.fruit)}</pre>
+                </div>
+                ` : ''}
+            `;
+
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('spore-modal').classList.remove('show');
+        }
+
+        // Modal close handlers
+        document.querySelector('.modal-close').addEventListener('click', closeModal);
+        document.getElementById('spore-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'spore-modal') closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
 
         function formatTime(timeStr) {
             const parts = timeStr.split(' ');
