@@ -41,14 +41,24 @@ Not all spores are the same:
    {PM_CLI} signal "@{WORKER}: for the surprising website - what if it only works at night?"
    ```
 
-2. **React to others' ideas** - build on them, challenge them, riff
+2. **Need someone to riff with?** Check if you're alone:
+   ```bash
+   {PM_CLI} status   # see who's active
+   ```
+   If no other workers are around and you want to brainstorm, spawn a collaborator:
+   ```bash
+   {PM_CLI} spawn
+   {PM_CLI} signal "@{WORKER}: spawned a collaborator - let's figure this out together"
+   ```
+
+3. **React to others' ideas** - build on them, challenge them, riff
    ```bash
    {PM_CLI} signal "@{WORKER}: @oak's night idea is good - maybe it shows stars?"
    ```
 
-3. **Let it breathe** - good ideas emerge from discussion, not from rushing
+4. **Let it breathe** - good ideas emerge from discussion, not from rushing
 
-4. **When something crystallizes** - whoever feels it should create the implementation spore:
+5. **When something crystallizes** - whoever feels it should create the implementation spore:
    ```bash
    {PM_CLI} new "Build night-mode website with star field"
    ```
@@ -100,6 +110,7 @@ Be critical. Push back. It's better to reject and iterate than ship something br
 {PM_CLI} signal "message"           # Say something to the network
 {PM_CLI} signals                    # Read the conversation
 {PM_CLI} status                     # See spores and workers
+{PM_CLI} spawn                      # Bring in a collaborator
 
 # Work
 {PM_CLI} new "task"                 # Create a spore (use after discussion converges)
