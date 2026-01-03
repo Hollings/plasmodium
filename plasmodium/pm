@@ -84,6 +84,10 @@ case "${1:-}" in
         shift
         pm_dashboard "$@"
         ;;
+    reset)
+        shift
+        pm_reset "$@"
+        ;;
 
     *)
         echo "plasmodium - self-orchestrating agent network"
@@ -93,6 +97,7 @@ case "${1:-}" in
         echo "Setup:"
         echo "  init [path]         Initialize plasmodium in a project"
         echo "  dashboard [port]    Start the dashboard (default: 3456)"
+        echo "  reset               Clear all spores, workers, signals"
         echo ""
         echo "Work:"
         echo "  new [--depends id] <task>  Create new spore (auto-spawns worker)"

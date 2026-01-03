@@ -117,6 +117,33 @@ pm_dashboard() {
     python3 server.py "$port"
 }
 
+pm_reset() {
+    local pm_dir=$(get_pm_dir)
+
+    echo "Resetting plasmodium state..."
+
+    # Clear spores
+    > "$pm_dir/spores.jsonl"
+
+    # Clear workers
+    echo '{"workers": {}}' > "$pm_dir/workers.json"
+
+    # Reset signals log
+    cat > "$pm_dir/signals.log" << 'EOF'
+# Plasmodium Signal Log
+# Workers communicate here
+---
+EOF
+
+    # Clear docs
+    rm -rf "$pm_dir/docs"/*
+
+    # Clear logs
+    rm -f "$pm_dir/logs"/*.log
+
+    echo "Reset complete. Run 'pm status' to verify."
+}
+
 # ============================================
 # SIGNALS
 # ============================================
