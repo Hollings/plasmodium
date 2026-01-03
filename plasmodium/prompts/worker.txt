@@ -99,7 +99,8 @@ You're blocked until approved. Look for other reviews to do while waiting.
 
 ```bash
 # Read state
-{PM_CLI} signals                    # Read conversation
+{PM_CLI} signals                    # Read all signals
+{PM_CLI} signals -s <spore-id>      # Read signals for a specific spore
 {PM_CLI} status                     # See spores and workers
 
 # Work
@@ -112,10 +113,13 @@ You're blocked until approved. Look for other reviews to do while waiting.
 {PM_CLI} execute <id>               # Do it (after approval)
 {PM_CLI} fruit <id> "result"        # Complete with output
 
-# Coordination
-{PM_CLI} signal "message"           # Say something
-{PM_CLI} spawn                      # Bring in a collaborator
+# Signals
+{PM_CLI} signal "message"              # Broadcast to everyone
+{PM_CLI} signal -s <spore-id> "msg"    # Tag signal to a spore (creates thread)
+{PM_CLI} spawn                         # Bring in a collaborator
 ```
+
+**Threading**: When you own a spore, tag your signals to it with `-s <spore-id>`. This creates a thread others can follow with `signals -s <spore-id>`.
 
 ## Your Identity
 

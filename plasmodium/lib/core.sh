@@ -166,9 +166,29 @@ EOF
 # ============================================
 
 pm_signal() {
-    local msg="$*"
+    local spore=""
+    local msg=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --spore|-s)
+                spore="$2"
+                shift 2
+                ;;
+            *)
+                if [[ -z "$msg" ]]; then
+                    msg="$1"
+                else
+                    msg="$msg $1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
     if [[ -z "$msg" ]]; then
-        echo "Usage: pm signal <message>" >&2
+        echo "Usage: pm signal [--spore <id>] <message>" >&2
         exit 1
     fi
 
@@ -176,19 +196,40 @@ pm_signal() {
     local worker=$(get_worker_name)
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
-    echo "[$timestamp] @$worker: $msg" >> "$log"
+    if [[ -n "$spore" ]]; then
+        echo "[$timestamp] @$worker [$spore]: $msg" >> "$log"
+    else
+        echo "[$timestamp] @$worker: $msg" >> "$log"
+    fi
     echo "signaled"
 }
 
 pm_signals() {
     local log=$(get_signal_log)
+    local follow=false
+    local spore=""
+    local n="50"
 
-    if [[ "$1" == "--follow" || "$1" == "-f" ]]; then
-        tail -f "$log"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --follow|-f) follow=true; shift ;;
+            --spore|-s) spore="$2"; shift 2 ;;
+            *) n="$1"; shift ;;
+        esac
+    done
+
+    if [[ "$follow" == "true" ]]; then
+        if [[ -n "$spore" ]]; then
+            tail -f "$log" | grep --line-buffered "\[$spore\]"
+        else
+            tail -f "$log"
+        fi
     else
-        # Show last 20 by default
-        local n="${1:-20}"
-        tail -n "$n" "$log"
+        if [[ -n "$spore" ]]; then
+            grep "\[$spore\]" "$log" | tail -n "$n"
+        else
+            tail -n "$n" "$log"
+        fi
     fi
 }
 
