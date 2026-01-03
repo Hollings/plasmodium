@@ -89,6 +89,9 @@ pm_init() {
         cp "$PM_SCRIPT_DIR/dashboard/server.py" "$pm_dir/server.py"
     fi
 
+    # Save config with pm path for server.py to use
+    echo "{\"pm_cli\": \"$PM_SCRIPT_DIR/pm\"}" > "$pm_dir/config.json"
+
     echo "Initialized plasmodium in $pm_dir/"
     echo ""
     echo "Next steps:"

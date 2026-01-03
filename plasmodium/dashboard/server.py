@@ -17,6 +17,17 @@ from urllib.parse import parse_qs
 DEFAULT_PORT = 3456
 PLASMODIUM_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Load config to get pm CLI path
+def get_pm_cli():
+    config_path = os.path.join(PLASMODIUM_DIR, 'config.json')
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            config = json.load(f)
+            return config.get('pm_cli', 'pm')
+    return 'pm'
+
+PM_CLI = get_pm_cli()
+
 class PlasmodiumHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=PLASMODIUM_DIR, **kwargs)
@@ -104,7 +115,7 @@ class PlasmodiumHandler(http.server.SimpleHTTPRequestHandler):
         # Use pm new which handles spore creation AND auto-spawns a worker
         try:
             result = subprocess.run(
-                ['pm', 'new', task],
+                [PM_CLI, 'new', task],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
