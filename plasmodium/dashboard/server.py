@@ -120,7 +120,8 @@ class PlasmodiumHandler(http.server.SimpleHTTPRequestHandler):
                 cwd=project_root,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                start_new_session=True  # Detach from spawned background processes
             )
 
             # Parse spore ID from output (last line should be the ID)
