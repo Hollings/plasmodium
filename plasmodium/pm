@@ -1,0 +1,98 @@
+#!/bin/bash
+# Plasmodium - self-orchestrating agent network
+# The slime mold finds the path
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PM_SCRIPT_DIR="$SCRIPT_DIR"
+source "$SCRIPT_DIR/lib/core.sh"
+
+case "${1:-}" in
+    # Signal commands
+    signal)
+        shift
+        pm_signal "$@"
+        ;;
+    signals)
+        shift
+        pm_signals "$@"
+        ;;
+
+    # Phase commands
+    explore)
+        shift
+        pm_explore "$@"
+        ;;
+    execute)
+        shift
+        pm_execute "$@"
+        ;;
+    fruit)
+        shift
+        pm_fruit "$@"
+        ;;
+
+    # Work commands
+    new)
+        shift
+        pm_new "$@"
+        ;;
+    claim)
+        shift
+        pm_claim "$@"
+        ;;
+    split)
+        shift
+        pm_split "$@"
+        ;;
+    ripen)
+        shift
+        pm_ripen "$@"
+        ;;
+
+    # Worker commands
+    spawn)
+        shift
+        pm_spawn "$@"
+        ;;
+    status)
+        shift
+        pm_status "$@"
+        ;;
+
+    # Init
+    init)
+        shift
+        pm_init "$@"
+        ;;
+
+    *)
+        echo "plasmodium - self-orchestrating agent network"
+        echo ""
+        echo "Usage: pm <command> [args...]"
+        echo ""
+        echo "Signals:"
+        echo "  signal <msg>        Emit to signal log"
+        echo "  signals [--follow]  Read signal log"
+        echo ""
+        echo "Phases:"
+        echo "  explore <id>        Enter plasmodium mode (exploration)"
+        echo "  execute <id>        Enter mycelium mode (execution)"
+        echo "  fruit <id> <output> Complete work with output"
+        echo ""
+        echo "Work:"
+        echo "  new <task>          Create new spore"
+        echo "  claim <id>          Claim a spore"
+        echo "  split <id>          Split spore into sub-spores"
+        echo "  ripen <id>          Check if children done, bubble up"
+        echo ""
+        echo "Workers:"
+        echo "  spawn [name]        Start new worker"
+        echo "  status              Show colony status"
+        echo ""
+        echo "Setup:"
+        echo "  init                Initialize plasmodium in current dir"
+        exit 1
+        ;;
+esac
