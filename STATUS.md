@@ -32,20 +32,22 @@ Multi-agent collaboration system. Owner agent creates bounded discussion phases 
 
 ## Short-Term Goals
 
-### 1. Explore Agent Before Owner (NEXT)
+### 1. Explore Agent Before Owner (DONE)
 
 **Problem**: Agents don't understand project structure. Each explores independently (wasteful) or not at all (builds wrong thing).
 
-**Solution**:
-- `pm task` kicks off Explore agent FIRST
+**Solution** (implemented):
+- `pm task` kicks off Explore agent FIRST (runs in foreground)
 - Explore agent writes `.plasmodium/tasks/tk-xxx/context.md`
 - Context includes: project structure, frameworks, key files, conventions
-- Owner spawns AFTER explore completes, with context available
-- All phase agents get context injected into their prompts
+- Owner spawns AFTER explore completes
+- All phase agents get context injected at top of their prompts
 
-**Owner role change**: Owner becomes pure facilitator - doesn't touch code, just orchestrates phases. Explore agent provides the technical context.
+**Files changed**:
+- `prompts/explore.md` - New prompt for Explore agent
+- `lib/core.sh` - `spawn_explore_agent()`, modified `pm_task()`, context injection in `spawn_agent_with_perspective()`
 
-### 2. Re-test After Explore Feature
+### 2. Re-test After Explore Feature (NEXT)
 
 Run another test on bigyear to verify:
 - Explore agent correctly identifies React app in `client/`
@@ -69,6 +71,7 @@ Run another test on bigyear to verify:
 │   ├── server.py         # Python HTTP server for API
 │   └── index.html        # Single-page dashboard UI
 ├── prompts/
+│   ├── explore.md        # Explore agent prompt (runs first)
 │   ├── owner.md          # Owner agent prompt
 │   └── agent.md          # Phase agent prompt (perspectives)
 ├── docs/

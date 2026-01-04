@@ -513,6 +513,19 @@ spawn_agent_with_perspective() {
     local task_desc=$(echo "$task" | jq -r '.description')
     prompt="${prompt//\{TASK_DESCRIPTION\}/$task_desc}"
 
+    # Inject project context if available
+    local context_file="$pm_dir/tasks/$task_id/context.md"
+    if [[ -f "$context_file" ]]; then
+        local context=$(cat "$context_file")
+        prompt="## Project Context (from Explore agent)
+
+$context
+
+---
+
+$prompt"
+    fi
+
     # Get phase info
     local phase=$(get_phase "$task_id" "$phase_id")
     local phase_name=$(echo "$phase" | jq -r '.name')
@@ -610,6 +623,47 @@ pm_reset() {
     echo "Reset complete"
 }
 
+spawn_explore_agent() {
+    local name="$1"
+    local task_id="$2"
+
+    local pm_dir=$(require_pm_dir)
+    local project_dir=$(get_project_dir)
+    local log_dir="$pm_dir/logs"
+    mkdir -p "$log_dir"
+
+    local prompt_file="$PM_SCRIPT_DIR/prompts/explore.md"
+    if [[ ! -f "$prompt_file" ]]; then
+        echo "Error: Explore prompt not found at $prompt_file" >&2
+        return 1
+    fi
+
+    # Read and substitute prompt
+    local prompt=$(cat "$prompt_file")
+    prompt="${prompt//\{NAME\}/$name}"
+    prompt="${prompt//\{TASK_ID\}/$task_id}"
+
+    # Get task description
+    local task=$(get_task "$task_id")
+    local task_desc=$(echo "$task" | jq -r '.description')
+    prompt="${prompt//\{TASK_DESCRIPTION\}/$task_desc}"
+
+    # Run in foreground (we wait for explore to finish)
+    local log_file="$log_dir/${name}.log"
+    (
+        cd "$project_dir"
+        echo "[$(date)] Explore agent $name starting (task: $task_id)" >> "$log_file"
+        PM_AGENT_NAME="$name" \
+        PM_TASK_ID="$task_id" \
+        PM_ROLE="explore" \
+        PM_CLI="$PM_CLI" \
+        claude --dangerously-skip-permissions -p "$prompt" >> "$log_file" 2>&1
+        local exit_code=$?
+        echo "[$(date)] Explore agent $name exited with code $exit_code" >> "$log_file"
+        exit $exit_code
+    )
+}
+
 pm_task() {
     local description="$1"
 
@@ -624,20 +678,43 @@ pm_task() {
 
     echo "Created task: $task_id"
     echo "Owner: @$owner"
+    echo ""
 
-    # Spawn owner agent
-    local prompt_file="$PM_SCRIPT_DIR/prompts/owner.md"
-    if [[ ! -f "$prompt_file" ]]; then
-        echo "Warning: Owner prompt not found at $prompt_file" >&2
+    # Phase 1: Explore agent maps the project
+    local explore_prompt="$PM_SCRIPT_DIR/prompts/explore.md"
+    if [[ -f "$explore_prompt" ]]; then
+        local explorer=$(gen_agent_name)
+        echo "Phase 1: Exploring project structure..."
+        echo "Explorer: @$explorer"
+        echo ""
+
+        spawn_explore_agent "$explorer" "$task_id"
+
+        # Check if context was written
+        local pm_dir=$(get_pm_dir)
+        local context_file="$pm_dir/tasks/$task_id/context.md"
+        if [[ -f "$context_file" ]]; then
+            echo ""
+            echo "Project context captured."
+        else
+            echo ""
+            echo "Warning: Explore agent didn't write context.md"
+        fi
+        echo ""
+    fi
+
+    # Phase 2: Owner agent takes over
+    local owner_prompt="$PM_SCRIPT_DIR/prompts/owner.md"
+    if [[ ! -f "$owner_prompt" ]]; then
+        echo "Warning: Owner prompt not found at $owner_prompt" >&2
         echo "Agent not spawned - create the prompt file first" >&2
         return 0
     fi
 
-    echo "Spawning owner agent..."
-    spawn_agent "$owner" "$task_id" "$prompt_file"
+    echo "Phase 2: Spawning owner agent..."
+    spawn_agent "$owner" "$task_id" "$owner_prompt"
     echo ""
-    echo "Owner is analyzing the task and will create phases."
-    echo "Monitor progress: pm status"
+    echo "Owner is orchestrating. Monitor: pm status"
 }
 
 pm_status() {
