@@ -121,6 +121,13 @@ create_task() {
         return 1
     fi
 
+    # Check if there's at least one commit
+    if ! git -C "$project_dir" rev-parse HEAD >/dev/null 2>&1; then
+        echo "Error: No commits yet" >&2
+        echo "Make an initial commit first: git add -A && git commit -m 'Initial commit'" >&2
+        return 1
+    fi
+
     local task_id=$(gen_id "tk")
     local task_dir="$pm_dir/tasks/$task_id"
     mkdir -p "$task_dir/phases"
