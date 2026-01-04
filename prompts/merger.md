@@ -32,6 +32,17 @@ git diff main...task/TASK_ID --stat
 git diff main...task/TASK_ID -- path/to/file
 ```
 
+**If no commits on the branch:**
+
+Before assuming the task wasn't done, check if the feature **already exists** in main:
+
+1. Read the task description carefully
+2. Search the codebase for existing implementations
+3. If the feature already exists → mark as "merged" (the team correctly avoided duplicate work)
+4. If the feature genuinely doesn't exist → send back with feedback
+
+Example: Task says "Add settings page for location" but Profile tab already has location editing → mark merged.
+
 ### 3. Attempt the Merge
 
 ```bash
