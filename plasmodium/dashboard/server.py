@@ -123,6 +123,9 @@ def get_overview() -> dict:
                     messages = load_jsonl_file(phase_dir / "messages.jsonl")
                     message_count = len(messages)
 
+                    # Load work items
+                    work_items = load_jsonl_file(phase_dir / "work.jsonl")
+
                     phase_info = {
                         "id": phase_data.get("id"),
                         "task_id": phase_data.get("task_id"),
@@ -132,6 +135,7 @@ def get_overview() -> dict:
                         "message_count": message_count,
                         "roles": phase_data.get("roles", []),
                         "created_at": phase_data.get("created_at"),
+                        "work_items": work_items,
                     }
                     task_info["phases"].append(phase_info)
 

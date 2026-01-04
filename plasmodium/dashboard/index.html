@@ -211,6 +211,113 @@
             color: #8b949e;
         }
 
+        .work-items {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #30363d;
+        }
+
+        .work-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .work-item:hover {
+            color: #58a6ff;
+        }
+
+        .work-item-icon {
+            font-size: 10px;
+        }
+
+        .work-item-icon.active {
+            color: #f0883e;
+        }
+
+        .work-item-icon.done {
+            color: #3fb950;
+        }
+
+        .work-item-owner {
+            color: #8b949e;
+        }
+
+        .work-item-desc {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Work Item Modal */
+        .work-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .work-modal.visible {
+            display: flex;
+        }
+
+        .work-modal-content {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .work-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .work-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .work-modal-close {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .work-modal-close:hover {
+            color: #c9d1d9;
+        }
+
+        .work-modal-field {
+            margin-bottom: 12px;
+        }
+
+        .work-modal-label {
+            font-size: 12px;
+            color: #8b949e;
+            margin-bottom: 4px;
+        }
+
+        .work-modal-value {
+            font-size: 14px;
+        }
+
         .phase.selected {
             background: #1f2937;
             border-left: 3px solid #58a6ff;
@@ -484,6 +591,22 @@
                     Math.min(100, (phase.message_count / phase.message_limit) * 100) : 0;
                 const isSelected = phase.id === selectedPhaseId;
 
+                // Render work items if any exist
+                let workItemsHtml = '';
+                if (phase.work_items && phase.work_items.length > 0) {
+                    workItemsHtml = `
+                        <div class="work-items">
+                            ${phase.work_items.map(w => `
+                                <div class="work-item" onclick='event.stopPropagation(); showWorkModal(${JSON.stringify(w).replace(/'/g, "&#39;")})'>
+                                    <span class="work-item-icon ${w.status}">${w.status === 'done' ? '✓' : '⏳'}</span>
+                                    <span class="work-item-owner">@${escapeHtml(w.owner)}</span>
+                                    <span class="work-item-desc">${escapeHtml(w.description)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
                 return `
                     <div class="phase ${isSelected ? 'selected' : ''}"
                          data-phase-id="${escapeHtml(phase.id)}"
@@ -499,6 +622,7 @@
                             ${phase.message_count}/${phase.message_limit || '?'} messages
                             ${phase.roles && phase.roles.length > 0 ? ' · ' + phase.roles.length + ' roles' : ''}
                         </div>
+                        ${workItemsHtml}
                     </div>
                 `;
             }).join('');
@@ -659,6 +783,57 @@
 
         // Poll messages every 2 seconds (when phase selected)
         setInterval(fetchMessages, 2000);
+
+        // Work item modal functions
+        function showWorkModal(workItem) {
+            const modal = document.getElementById('work-modal');
+            document.getElementById('work-modal-id').textContent = workItem.id;
+            document.getElementById('work-modal-status').textContent = workItem.status;
+            document.getElementById('work-modal-status').className = 'work-modal-value ' + workItem.status;
+            document.getElementById('work-modal-owner').textContent = '@' + workItem.owner;
+            document.getElementById('work-modal-desc').textContent = workItem.description;
+            document.getElementById('work-modal-created').textContent = formatTime(workItem.created_at);
+            modal.classList.add('visible');
+        }
+
+        function hideWorkModal() {
+            document.getElementById('work-modal').classList.remove('visible');
+        }
+
+        // Close modal on background click
+        document.getElementById('work-modal').addEventListener('click', function(e) {
+            if (e.target === this) hideWorkModal();
+        });
     </script>
+
+    <!-- Work Item Modal -->
+    <div class="work-modal" id="work-modal">
+        <div class="work-modal-content">
+            <div class="work-modal-header">
+                <div class="work-modal-title">Work Item</div>
+                <button class="work-modal-close" onclick="hideWorkModal()">×</button>
+            </div>
+            <div class="work-modal-field">
+                <div class="work-modal-label">ID</div>
+                <div class="work-modal-value" id="work-modal-id"></div>
+            </div>
+            <div class="work-modal-field">
+                <div class="work-modal-label">Status</div>
+                <div class="work-modal-value" id="work-modal-status"></div>
+            </div>
+            <div class="work-modal-field">
+                <div class="work-modal-label">Owner</div>
+                <div class="work-modal-value" id="work-modal-owner"></div>
+            </div>
+            <div class="work-modal-field">
+                <div class="work-modal-label">Description</div>
+                <div class="work-modal-value" id="work-modal-desc"></div>
+            </div>
+            <div class="work-modal-field">
+                <div class="work-modal-label">Created</div>
+                <div class="work-modal-value" id="work-modal-created"></div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
