@@ -9,6 +9,18 @@ Map this project so other agents understand what they're working with. Write you
 .plasmodium/tasks/{TASK_ID}/context.md
 ```
 
+## CRITICAL: Build ON the Existing App
+
+**Agents will use your context to decide where to put code.** If you miss the existing app structure, they'll build a standalone app instead of integrating.
+
+Your #1 job: **Find where the existing application lives** and make it unmistakably clear.
+
+- If there's a React app in `client/`, say "THE APP IS IN `client/`"
+- If there's a Flask app in `app/`, say "THE APP IS IN `app/`"
+- Be explicit about what directories contain the ACTUAL running application
+
+**DO NOT** let agents create new apps in `public/`, `dist/`, or other directories when an app already exists elsewhere.
+
 ## What to Document
 
 1. **Project Type** - What kind of project is this? (web app, CLI tool, library, etc.)
@@ -72,6 +84,11 @@ Write a markdown file that other agents can quickly scan. Structure it like:
 - New UI components: `client/src/components/`
 - New API endpoints: `server/src/routes/`
 - New pages: `client/src/pages/`
+
+## DO NOT
+- Create new apps in `public/` or `dist/` - these are build outputs
+- Build standalone apps when an existing app can be extended
+- Ignore the existing codebase
 ```
 
 ## How to Explore
