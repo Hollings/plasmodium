@@ -67,6 +67,20 @@ case "${1:-}" in
         pm_history "$@"
         ;;
 
+    # Work coordination (phase agents)
+    work)
+        shift
+        pm_work "$@"
+        ;;
+    work-status)
+        shift
+        pm_work_status "$@"
+        ;;
+    work-done)
+        shift
+        pm_work_done "$@"
+        ;;
+
     # Task lifecycle (owner)
     subtask)
         shift
@@ -107,6 +121,9 @@ case "${1:-}" in
         echo "For All Agents:"
         echo "  chat                      Read current phase messages"
         echo "  say \"message\"             Post to current phase"
+        echo "  work \"description\"        Claim a work item (announces to chat)"
+        echo "  work-status               Show all work items in phase"
+        echo "  work-done [\"message\"]     Complete your work item"
         echo "  history --tail N          Read previous phase discussions"
         echo ""
         echo "For Owner Agents:"

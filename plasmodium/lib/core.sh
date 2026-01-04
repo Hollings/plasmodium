@@ -278,6 +278,98 @@ close_phase() {
 }
 
 # ============================================================================
+# Work Items (phase-scoped tasks for parallel coordination)
+# ============================================================================
+
+create_work_item() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+    local description="$3"
+    local owner="$4"
+
+    local work_file="$pm_dir/tasks/$task_id/phases/$phase_id/work.jsonl"
+    local work_id=$(gen_id "wk")
+
+    local escaped_desc=$(echo "$description" | jq -Rs .)
+
+    echo "{\"id\":\"$work_id\",\"description\":$escaped_desc,\"owner\":\"$owner\",\"status\":\"active\",\"created_at\":\"$(get_timestamp)\"}" >> "$work_file"
+
+    echo "$work_id"
+}
+
+get_work_items() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+
+    local work_file="$pm_dir/tasks/$task_id/phases/$phase_id/work.jsonl"
+
+    if [[ -f "$work_file" ]]; then
+        cat "$work_file"
+    fi
+}
+
+complete_work_item() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+    local work_id="$3"
+
+    local work_file="$pm_dir/tasks/$task_id/phases/$phase_id/work.jsonl"
+
+    if [[ ! -f "$work_file" ]]; then
+        echo "Error: No work items found" >&2
+        return 1
+    fi
+
+    # Rewrite file with updated status
+    local tmp=$(mktemp)
+    while IFS= read -r line; do
+        local id=$(echo "$line" | jq -r '.id')
+        if [[ "$id" == "$work_id" ]]; then
+            echo "$line" | jq -c '.status = "done"'
+        else
+            echo "$line"
+        fi
+    done < "$work_file" > "$tmp"
+    mv "$tmp" "$work_file"
+}
+
+get_agent_work_item() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+    local agent_name="$3"
+
+    local work_file="$pm_dir/tasks/$task_id/phases/$phase_id/work.jsonl"
+
+    if [[ -f "$work_file" ]]; then
+        grep "\"owner\":\"$agent_name\"" "$work_file" | grep '"status":"active"' | head -1
+    fi
+}
+
+all_work_complete() {
+    local pm_dir=$(require_pm_dir)
+    local task_id="$1"
+    local phase_id="$2"
+
+    local work_file="$pm_dir/tasks/$task_id/phases/$phase_id/work.jsonl"
+
+    # No work items = complete
+    if [[ ! -f "$work_file" ]] || [[ ! -s "$work_file" ]]; then
+        return 0
+    fi
+
+    # Check for any active work items
+    if grep -q '"status":"active"' "$work_file"; then
+        return 1
+    fi
+
+    return 0
+}
+
+# ============================================================================
 # Agent Registry
 # ============================================================================
 
@@ -704,8 +796,13 @@ pm_say() {
     # Check if we just hit the limit
     count=$((count + 1))
     if [[ $count -ge $limit ]]; then
-        close_phase "$task_id" "$phase_id"
-        echo "Message posted ($count/$limit) - phase closed"
+        # Check if all work items are complete before closing
+        if all_work_complete "$task_id" "$phase_id"; then
+            close_phase "$task_id" "$phase_id"
+            echo "Message posted ($count/$limit) - phase closed"
+        else
+            echo "Message posted ($count/$limit) - limit reached but waiting for work items"
+        fi
     else
         echo "Message posted ($count/$limit)"
     fi
@@ -973,6 +1070,139 @@ pm_clean() {
         echo "No dead agents found"
     else
         echo "Cleaned $cleaned dead agent(s)"
+    fi
+}
+
+pm_work() {
+    local description="$1"
+
+    if [[ -z "$description" ]]; then
+        echo "Usage: pm work \"description\"" >&2
+        echo "  Creates a work item and assigns it to yourself" >&2
+        exit 1
+    fi
+
+    local task_id=$(get_agent_task)
+    local phase_id=$(get_agent_phase)
+    local agent_name=$(get_agent_name)
+
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm work can only be called by an agent" >&2
+        exit 1
+    fi
+
+    if [[ -z "$phase_id" ]]; then
+        # Owner - find active phase
+        local phase=$(get_active_phase "$task_id")
+        if [[ -z "$phase" ]]; then
+            echo "Error: No active phase" >&2
+            exit 1
+        fi
+        phase_id=$(echo "$phase" | jq -r '.id')
+    fi
+
+    # Check if agent already has active work
+    local existing=$(get_agent_work_item "$task_id" "$phase_id" "$agent_name")
+    if [[ -n "$existing" ]]; then
+        local existing_desc=$(echo "$existing" | jq -r '.description')
+        echo "Error: You already have active work: $existing_desc" >&2
+        echo "Run 'pm work-done' first" >&2
+        exit 1
+    fi
+
+    local work_id=$(create_work_item "$task_id" "$phase_id" "$description" "$agent_name")
+    echo "Created work item: $work_id"
+    echo "Assigned to: @$agent_name"
+    echo "Description: $description"
+
+    # Notify the chat
+    local role=$(get_agent_role)
+    append_message "$task_id" "$phase_id" "$agent_name" "$role" "[WORK] Starting: $description"
+}
+
+pm_work_status() {
+    local task_id=$(get_agent_task)
+    local phase_id=$(get_agent_phase)
+
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm work-status can only be called by an agent" >&2
+        exit 1
+    fi
+
+    if [[ -z "$phase_id" ]]; then
+        local phase=$(get_active_phase "$task_id")
+        if [[ -z "$phase" ]]; then
+            echo "No active phase"
+            return 0
+        fi
+        phase_id=$(echo "$phase" | jq -r '.id')
+    fi
+
+    echo "=== Work Items ==="
+    local work_items=$(get_work_items "$task_id" "$phase_id")
+    if [[ -z "$work_items" ]]; then
+        echo "(none)"
+        return 0
+    fi
+
+    echo "$work_items" | while IFS= read -r line; do
+        local status=$(echo "$line" | jq -r '.status')
+        local owner=$(echo "$line" | jq -r '.owner')
+        local desc=$(echo "$line" | jq -r '.description')
+        local icon="⏳"
+        [[ "$status" == "done" ]] && icon="✓"
+        echo "$icon @$owner: $desc"
+    done
+}
+
+pm_work_done() {
+    local message="${1:-}"
+
+    local task_id=$(get_agent_task)
+    local phase_id=$(get_agent_phase)
+    local agent_name=$(get_agent_name)
+
+    if [[ -z "$task_id" ]]; then
+        echo "Error: pm work-done can only be called by an agent" >&2
+        exit 1
+    fi
+
+    if [[ -z "$phase_id" ]]; then
+        local phase=$(get_active_phase "$task_id")
+        if [[ -z "$phase" ]]; then
+            echo "Error: No active phase" >&2
+            exit 1
+        fi
+        phase_id=$(echo "$phase" | jq -r '.id')
+    fi
+
+    # Find agent's active work item
+    local work_item=$(get_agent_work_item "$task_id" "$phase_id" "$agent_name")
+    if [[ -z "$work_item" ]]; then
+        echo "Error: You have no active work item" >&2
+        exit 1
+    fi
+
+    local work_id=$(echo "$work_item" | jq -r '.id')
+    local work_desc=$(echo "$work_item" | jq -r '.description')
+
+    complete_work_item "$task_id" "$phase_id" "$work_id"
+    echo "Completed: $work_desc"
+
+    # Notify the chat
+    local role=$(get_agent_role)
+    local notify_msg="[WORK DONE] $work_desc"
+    [[ -n "$message" ]] && notify_msg="[WORK DONE] $work_desc - $message"
+    append_message "$task_id" "$phase_id" "$agent_name" "$role" "$notify_msg"
+
+    # Check if phase should now close
+    local phase=$(get_phase "$task_id" "$phase_id")
+    local limit=$(echo "$phase" | jq -r '.message_limit')
+    local count=$(get_message_count "$task_id" "$phase_id")
+
+    if [[ $count -ge $limit ]] && all_work_complete "$task_id" "$phase_id"; then
+        close_phase "$task_id" "$phase_id"
+        echo "All work complete - phase closed"
     fi
 }
 
