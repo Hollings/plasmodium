@@ -130,7 +130,7 @@ create_task() {
 
     # Create worktree for this task
     mkdir -p "$pm_dir/worktrees"
-    git -C "$project_dir" worktree add "$worktree_path" "$branch_name" 2>/dev/null || {
+    git -C "$project_dir" worktree add "$worktree_path" "$branch_name" >/dev/null 2>&1 || {
         echo "Error: Failed to create worktree at $worktree_path" >&2
         git -C "$project_dir" branch -d "$branch_name" 2>/dev/null
         return 1
@@ -699,6 +699,7 @@ spawn_explore_agent() {
     local prompt=$(cat "$prompt_file")
     prompt="${prompt//\{NAME\}/$name}"
     prompt="${prompt//\{TASK_ID\}/$task_id}"
+    prompt="${prompt//\{PM_DIR\}/$pm_dir}"
 
     # Get task description
     local task=$(get_task "$task_id")

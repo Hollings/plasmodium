@@ -35,14 +35,30 @@ pm phase "Design" --limit 8 \
 ```
 
 ### Implementation Phases
-For getting work done (still need 2 perspectives for discussion):
+For getting work done:
 ```bash
 pm phase "Build" --limit 8 \
-  "implementer - build the feature based on our design discussion" \
-  "code reviewer - check the implementation as it's built"
+  "builder - writes code" \
+  "reviewer - checks quality"
 ```
 
-The key difference is in the perspective. "Implementer" agents write code. "Reviewer" agents critique. But every phase needs at least 2 voices.
+## IMPORTANT: Perspectives are Identities, Not Jobs
+
+Perspectives should be **general mindsets**, not task-specific instructions.
+
+**GOOD perspectives:**
+- "minimalist - wants simple solutions"
+- "skeptic - questions assumptions"
+- "pragmatist - focuses on what works"
+- "builder - writes code"
+- "reviewer - checks quality"
+
+**BAD perspectives (too specific):**
+- "implementer - build the hover effect for the star button" ❌
+- "work on the database schema changes" ❌
+- "add the CSS for the modal" ❌
+
+The perspective describes WHO they are, not WHAT to build. The task description and phase name provide the "what".
 
 ## Workflow
 

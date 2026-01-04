@@ -6,8 +6,10 @@ Task ID: {TASK_ID}
 
 Map this project so other agents understand what they're working with. Write your findings to:
 ```
-.plasmodium/tasks/{TASK_ID}/context.md
+{PM_DIR}/tasks/{TASK_ID}/context.md
 ```
+
+**IMPORTANT**: Use the EXACT path above. It's an absolute path, not relative.
 
 ## CRITICAL: Build ON the Existing App
 
