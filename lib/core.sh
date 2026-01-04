@@ -110,6 +110,7 @@ list_tasks() {
 
 create_task() {
     local pm_dir=$(require_pm_dir)
+    local project_dir=$(get_project_dir)
     local description="$1"
     local parent_id="${2:-}"
 
@@ -118,6 +119,22 @@ create_task() {
     mkdir -p "$task_dir/phases"
 
     local owner=$(gen_agent_name)
+    local branch_name="task/$task_id"
+    local worktree_path="$pm_dir/worktrees/$task_id"
+
+    # Create branch from current HEAD
+    git -C "$project_dir" branch "$branch_name" HEAD 2>/dev/null || {
+        echo "Error: Failed to create branch $branch_name" >&2
+        return 1
+    }
+
+    # Create worktree for this task
+    mkdir -p "$pm_dir/worktrees"
+    git -C "$project_dir" worktree add "$worktree_path" "$branch_name" 2>/dev/null || {
+        echo "Error: Failed to create worktree at $worktree_path" >&2
+        git -C "$project_dir" branch -d "$branch_name" 2>/dev/null
+        return 1
+    }
 
     cat > "$task_dir/task.json" << EOF
 {
@@ -126,11 +143,19 @@ create_task() {
   "owner": "$owner",
   "parent_id": ${parent_id:+\"$parent_id\"}${parent_id:-null},
   "status": "active",
+  "branch": "$branch_name",
+  "worktree": "$worktree_path",
   "created_at": "$(get_timestamp)"
 }
 EOF
 
     echo "$task_id"
+}
+
+get_task_worktree() {
+    local task_id="$1"
+    local task=$(get_task "$task_id")
+    echo "$task" | jq -r '.worktree // empty'
 }
 
 update_task_status() {
@@ -443,6 +468,12 @@ spawn_agent() {
     local log_dir="$pm_dir/logs"
     mkdir -p "$log_dir"
 
+    # Use worktree if available, otherwise project dir
+    local work_dir=$(get_task_worktree "$task_id")
+    if [[ -z "$work_dir" ]] || [[ ! -d "$work_dir" ]]; then
+        work_dir="$project_dir"
+    fi
+
     # Read and substitute prompt
     local prompt=$(cat "$prompt_file")
     prompt="${prompt//\{NAME\}/$name}"
@@ -467,8 +498,8 @@ spawn_agent() {
     # Spawn Claude Code in background
     local log_file="$log_dir/${name}.log"
     (
-        cd "$project_dir"
-        echo "[$(date)] Agent $name starting (task: $task_id, phase: $phase_id)" >> "$log_file"
+        cd "$work_dir"
+        echo "[$(date)] Agent $name starting (task: $task_id, phase: $phase_id, workdir: $work_dir)" >> "$log_file"
         PM_AGENT_NAME="$name" \
         PM_TASK_ID="$task_id" \
         PM_PHASE_ID="$phase_id" \
@@ -496,6 +527,12 @@ spawn_agent_with_perspective() {
     local project_dir=$(get_project_dir)
     local log_dir="$pm_dir/logs"
     mkdir -p "$log_dir"
+
+    # Use worktree if available, otherwise project dir
+    local work_dir=$(get_task_worktree "$task_id")
+    if [[ -z "$work_dir" ]] || [[ ! -d "$work_dir" ]]; then
+        work_dir="$project_dir"
+    fi
 
     # Read generic agent prompt
     local prompt_file="$PM_SCRIPT_DIR/prompts/agent.md"
@@ -536,8 +573,8 @@ $prompt"
     # Spawn Claude Code in background
     local log_file="$log_dir/${name}.log"
     (
-        cd "$project_dir"
-        echo "[$(date)] Agent $name starting (phase: $phase_id, perspective: $perspective)" >> "$log_file"
+        cd "$work_dir"
+        echo "[$(date)] Agent $name starting (phase: $phase_id, perspective: $perspective, workdir: $work_dir)" >> "$log_file"
         PM_AGENT_NAME="$name" \
         PM_TASK_ID="$task_id" \
         PM_PHASE_ID="$phase_id" \
@@ -603,6 +640,7 @@ EOF
 
 pm_reset() {
     local pm_dir=$(require_pm_dir)
+    local project_dir=$(get_project_dir)
 
     echo "Resetting plasmodium state..."
 
@@ -612,6 +650,19 @@ pm_reset() {
         for pid in $pids; do
             kill "$pid" 2>/dev/null || true
         done
+    fi
+
+    # Remove worktrees and their branches
+    if [[ -d "$pm_dir/worktrees" ]]; then
+        for worktree in "$pm_dir/worktrees"/*/; do
+            if [[ -d "$worktree" ]]; then
+                local task_id=$(basename "$worktree")
+                local branch_name="task/$task_id"
+                git -C "$project_dir" worktree remove "$worktree" --force 2>/dev/null || true
+                git -C "$project_dir" branch -D "$branch_name" 2>/dev/null || true
+            fi
+        done
+        rm -rf "$pm_dir/worktrees"
     fi
 
     # Clear state
@@ -632,6 +683,12 @@ spawn_explore_agent() {
     local log_dir="$pm_dir/logs"
     mkdir -p "$log_dir"
 
+    # Use worktree if available, otherwise project dir
+    local work_dir=$(get_task_worktree "$task_id")
+    if [[ -z "$work_dir" ]] || [[ ! -d "$work_dir" ]]; then
+        work_dir="$project_dir"
+    fi
+
     local prompt_file="$PM_SCRIPT_DIR/prompts/explore.md"
     if [[ ! -f "$prompt_file" ]]; then
         echo "Error: Explore prompt not found at $prompt_file" >&2
@@ -651,8 +708,8 @@ spawn_explore_agent() {
     # Run in foreground (we wait for explore to finish)
     local log_file="$log_dir/${name}.log"
     (
-        cd "$project_dir"
-        echo "[$(date)] Explore agent $name starting (task: $task_id)" >> "$log_file"
+        cd "$work_dir"
+        echo "[$(date)] Explore agent $name starting (task: $task_id, workdir: $work_dir)" >> "$log_file"
         PM_AGENT_NAME="$name" \
         PM_TASK_ID="$task_id" \
         PM_ROLE="explore" \
@@ -998,13 +1055,202 @@ pm_done() {
         close_phase "$task_id" "$phase_id"
     fi
 
-    # Update task status
-    update_task_status "$task_id" "done"
+    # Commit changes in worktree
+    local work_dir=$(get_task_worktree "$task_id")
+    if [[ -n "$work_dir" ]] && [[ -d "$work_dir" ]]; then
+        local task=$(get_task "$task_id")
+        local task_desc=$(echo "$task" | jq -r '.description')
+
+        # Stage and commit any changes
+        if git -C "$work_dir" status --porcelain | grep -q .; then
+            git -C "$work_dir" add -A
+            git -C "$work_dir" commit -m "feat: $task_desc
+
+Task: $task_id
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>" 2>/dev/null || true
+        fi
+    fi
+
+    # Update task status to ready (awaiting merge)
+    update_task_status "$task_id" "ready"
 
     # Unregister self
     unregister_agent "$agent_name"
 
-    echo "Task complete: $task_id"
+    echo "Task ready for merge: $task_id"
+    echo "Run 'pm merge' to review and merge to main"
+}
+
+pm_merge() {
+    local pm_dir=$(require_pm_dir)
+    local project_dir=$(get_project_dir)
+
+    # Find all ready tasks
+    local ready_tasks=()
+    for task_dir in "$pm_dir/tasks"/*/; do
+        if [[ -f "${task_dir}task.json" ]]; then
+            local status=$(jq -r '.status' "${task_dir}task.json")
+            if [[ "$status" == "ready" ]]; then
+                local task_id=$(jq -r '.id' "${task_dir}task.json")
+                ready_tasks+=("$task_id")
+            fi
+        fi
+    done
+
+    if [[ ${#ready_tasks[@]} -eq 0 ]]; then
+        echo "No tasks ready for merge."
+        echo "Tasks become ready when owner runs 'pm done'"
+        return 0
+    fi
+
+    echo "Tasks ready for merge: ${#ready_tasks[@]}"
+    for t in "${ready_tasks[@]}"; do
+        local task=$(get_task "$t")
+        local desc=$(echo "$task" | jq -r '.description')
+        echo "  - $t: $desc"
+    done
+    echo ""
+
+    # Build task list for merger prompt
+    local task_list=""
+    for t in "${ready_tasks[@]}"; do
+        local task=$(get_task "$t")
+        local desc=$(echo "$task" | jq -r '.description')
+        local branch=$(echo "$task" | jq -r '.branch')
+        local worktree=$(echo "$task" | jq -r '.worktree')
+        task_list+="- **$t**: $desc
+  - Branch: \`$branch\`
+  - Worktree: \`$worktree\`
+"
+    done
+
+    # Spawn merger agent
+    local merger_name=$(gen_agent_name)
+    echo "Spawning merger agent: @$merger_name"
+
+    local prompt_file="$PM_SCRIPT_DIR/prompts/merger.md"
+    if [[ ! -f "$prompt_file" ]]; then
+        echo "Error: Merger prompt not found at $prompt_file" >&2
+        return 1
+    fi
+
+    local prompt=$(cat "$prompt_file")
+    prompt="${prompt//\{TASK_LIST\}/$task_list}"
+    prompt="${prompt//\{PROJECT_DIR\}/$project_dir}"
+    prompt="${prompt//\{PM_DIR\}/$pm_dir}"
+
+    local log_dir="$pm_dir/logs"
+    mkdir -p "$log_dir"
+    local log_file="$log_dir/${merger_name}.log"
+
+    (
+        cd "$project_dir"
+        echo "[$(date)] Merger agent $merger_name starting" >> "$log_file"
+        PM_AGENT_NAME="$merger_name" \
+        PM_ROLE="merger" \
+        PM_CLI="$PM_CLI" \
+        claude --dangerously-skip-permissions -p "$prompt" >> "$log_file" 2>&1
+        echo "[$(date)] Merger agent $merger_name exited with code $?" >> "$log_file"
+    )
+}
+
+pm_resume() {
+    local task_id="$1"
+
+    if [[ -z "$task_id" ]]; then
+        echo "Usage: pm resume <task-id>" >&2
+        exit 1
+    fi
+
+    local pm_dir=$(require_pm_dir)
+    local task=$(get_task "$task_id")
+
+    if [[ -z "$task" ]]; then
+        echo "Error: Task not found: $task_id" >&2
+        exit 1
+    fi
+
+    local status=$(echo "$task" | jq -r '.status')
+    if [[ "$status" != "needs-work" ]]; then
+        echo "Error: Task $task_id is not in needs-work status (current: $status)" >&2
+        echo "Only tasks sent back by the merger can be resumed" >&2
+        exit 1
+    fi
+
+    local owner=$(echo "$task" | jq -r '.owner')
+    local task_desc=$(echo "$task" | jq -r '.description')
+
+    echo "Resuming task: $task_id"
+    echo "Owner: @$owner"
+
+    # Check for feedback
+    local feedback_file="$pm_dir/tasks/$task_id/feedback.md"
+    if [[ -f "$feedback_file" ]]; then
+        echo "Feedback from merger:"
+        head -20 "$feedback_file"
+        echo "..."
+        echo ""
+    fi
+
+    # Update status back to active
+    update_task_status "$task_id" "active"
+
+    # Spawn owner agent with feedback context
+    local owner_prompt="$PM_SCRIPT_DIR/prompts/owner.md"
+    if [[ ! -f "$owner_prompt" ]]; then
+        echo "Error: Owner prompt not found" >&2
+        exit 1
+    fi
+
+    local prompt=$(cat "$owner_prompt")
+    prompt="${prompt//\{NAME\}/$owner}"
+    prompt="${prompt//\{TASK_ID\}/$task_id}"
+    prompt="${prompt//\{TASK_DESCRIPTION\}/$task_desc}"
+
+    # Inject feedback if available
+    if [[ -f "$feedback_file" ]]; then
+        local feedback=$(cat "$feedback_file")
+        prompt="## IMPORTANT: Merger Feedback
+
+The merger reviewed your work and sent it back. Address the following:
+
+$feedback
+
+---
+
+$prompt"
+    fi
+
+    local work_dir=$(get_task_worktree "$task_id")
+    if [[ -z "$work_dir" ]] || [[ ! -d "$work_dir" ]]; then
+        work_dir=$(get_project_dir)
+    fi
+
+    local log_dir="$pm_dir/logs"
+    mkdir -p "$log_dir"
+    local log_file="$log_dir/${owner}.log"
+
+    echo "Spawning owner agent..."
+    (
+        cd "$work_dir"
+        echo "[$(date)] Owner $owner resuming (task: $task_id)" >> "$log_file"
+        PM_AGENT_NAME="$owner" \
+        PM_TASK_ID="$task_id" \
+        PM_ROLE="owner" \
+        PM_CLI="$PM_CLI" \
+        claude --dangerously-skip-permissions -p "$prompt" >> "$log_file" 2>&1
+        echo "[$(date)] Owner $owner exited with code $?" >> "$log_file"
+    ) &
+
+    local pid=$!
+    register_agent "$owner" "$task_id" "" "owner" "$pid"
+
+    echo "$owner (pid: $pid)"
+    echo ""
+    echo "Owner is addressing merger feedback."
 }
 
 pm_extend_phase() {

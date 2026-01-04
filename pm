@@ -105,6 +105,16 @@ case "${1:-}" in
         pm_dashboard_stop "$@"
         ;;
 
+    # Merge
+    merge)
+        shift
+        pm_merge "$@"
+        ;;
+    resume)
+        shift
+        pm_resume "$@"
+        ;;
+
     # Help
     -h|--help|help|"")
         echo "plasmodium v2 - multi-agent collaboration"
@@ -138,7 +148,11 @@ case "${1:-}" in
         echo "  end-phase                 Close phase early"
         echo "  subtask \"description\"     Create child task"
         echo "  wait-children             Block until subtasks done"
-        echo "  done                      Mark task complete"
+        echo "  done                      Mark task ready for merge"
+        echo ""
+        echo "Merge Workflow:"
+        echo "  merge                     Spawn merger agent to review ready tasks"
+        echo "  resume <task-id>          Resume a task that needs work"
         ;;
 
     *)
