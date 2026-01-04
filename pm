@@ -100,6 +100,10 @@ case "${1:-}" in
         shift
         pm_dashboard "$@"
         ;;
+    dashboard-stop)
+        shift
+        pm_dashboard_stop "$@"
+        ;;
 
     # Help
     -h|--help|help|"")
@@ -108,10 +112,11 @@ case "${1:-}" in
         echo "Usage: pm <command> [args...]"
         echo ""
         echo "Setup:"
-        echo "  init                      Initialize plasmodium in current project"
+        echo "  init                      Initialize (auto-starts dashboard)"
         echo "  reset                     Clear all state"
         echo "  clean                     Remove dead agents from registry"
-        echo "  dashboard                 Start web dashboard"
+        echo "  dashboard [port]          Start dashboard (foreground)"
+        echo "  dashboard-stop            Stop dashboard for this project"
         echo ""
         echo "For Humans:"
         echo "  task \"description\"        Create task, spawn owner agent"

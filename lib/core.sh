@@ -1251,3 +1251,42 @@ pm_dashboard() {
     echo "Starting dashboard..."
     python3 "$server" --port "$port" --pm-dir "$pm_dir"
 }
+
+pm_dashboard_stop() {
+    local pm_dir=$(get_pm_dir)
+
+    if [[ -z "$pm_dir" ]]; then
+        echo "Error: Not in a plasmodium project." >&2
+        exit 1
+    fi
+
+    # Convert to absolute path for matching
+    local abs_pm_dir=$(cd "$(dirname "$pm_dir")" && pwd)/$(basename "$pm_dir")
+
+    # Find dashboard processes for THIS project by matching --pm-dir argument
+    local pids=$(ps aux | grep "server.py" | grep -- "--pm-dir" | grep "$abs_pm_dir" | grep -v grep | awk '{print $2}')
+
+    if [[ -z "$pids" ]]; then
+        echo "No dashboard running for this project"
+        return 0
+    fi
+
+    local count=0
+    for pid in $pids; do
+        if kill "$pid" 2>/dev/null; then
+            echo "Stopped dashboard (pid: $pid)"
+            ((count++))
+        fi
+    done
+
+    # Clean up pid file if it exists
+    rm -f "$pm_dir/dashboard.pid"
+
+    if [[ $count -eq 0 ]]; then
+        echo "No dashboard processes found"
+    elif [[ $count -eq 1 ]]; then
+        echo "Dashboard stopped"
+    else
+        echo "Stopped $count dashboard processes"
+    fi
+}
