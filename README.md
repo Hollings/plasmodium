@@ -136,3 +136,69 @@ plasmodium/                      # The tool itself
 ## Why "Plasmodium"?
 
 Like the slime mold *Physarum polycephalum*, this system has no central controller. Agents explore problems from different perspectives, communicate through shared state, and converge on solutions through bounded interaction. The owner provides structure, but the actual work emerges from collaboration.
+
+## Flowcharts
+
+### System Flow
+
+```mermaid
+flowchart TD
+    subgraph User
+        A[pm task 'description']
+    end
+
+    subgraph Owner["Owner Agent"]
+        B[Spawn & read task]
+        C[Create phase]
+        D[Define perspectives]
+        E[Spawn phase agents]
+        F{More phases<br/>needed?}
+        G[Task complete]
+    end
+
+    subgraph Phase["Phase (bounded discussion)"]
+        H[Agent A<br/>perspective 1]
+        I[Agent B<br/>perspective 2]
+        J[Discussion + Work]
+        K[Message limit reached<br/>+ all work done]
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> H & I
+    H & I --> J
+    J --> K
+    K --> F
+    F -->|Yes| C
+    F -->|No| G
+```
+
+### Phase Agent Flow
+
+```mermaid
+flowchart TD
+    A([Agent spawned<br/>with perspective]) --> B[pm chat<br/>read messages]
+    B --> C{Phase<br/>closed?}
+    C -->|Yes| D([Exit])
+    C -->|No| E{Need to<br/>build?}
+
+    E -->|No| F[pm say '...'<br/>share perspective]
+    F --> B
+
+    E -->|Yes| H[pm work '...'<br/>claim work item]
+    H --> I[Build / Code<br/>do the work]
+    I --> J[pm work-done<br/>mark complete]
+    J --> B
+```
+
+### Work Items
+
+Work items prevent duplicate work and premature phase closure:
+
+- `pm work "description"` — Claim work before starting (announces to chat)
+- `pm work-status` — See who's working on what
+- `pm work-done "summary"` — Mark complete when finished
+
+Phase won't close until **all work items are done**, even if message limit is reached.
