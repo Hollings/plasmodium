@@ -114,6 +114,13 @@ create_task() {
     local description="$1"
     local parent_id="${2:-}"
 
+    # Check if project is a git repo
+    if ! git -C "$project_dir" rev-parse --git-dir >/dev/null 2>&1; then
+        echo "Error: Not a git repository" >&2
+        echo "Plasmodium requires git for task isolation. Run: git init" >&2
+        return 1
+    fi
+
     local task_id=$(gen_id "tk")
     local task_dir="$pm_dir/tasks/$task_id"
     mkdir -p "$task_dir/phases"
