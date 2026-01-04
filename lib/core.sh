@@ -465,15 +465,17 @@ spawn_agent() {
     fi
 
     # Spawn Claude Code in background
+    local log_file="$log_dir/${name}.log"
     (
         cd "$project_dir"
+        echo "[$(date)] Agent $name starting (task: $task_id, phase: $phase_id)" >> "$log_file"
         PM_AGENT_NAME="$name" \
         PM_TASK_ID="$task_id" \
         PM_PHASE_ID="$phase_id" \
         PM_ROLE="$role" \
         PM_CLI="$PM_CLI" \
-        claude --dangerously-skip-permissions -p "$prompt" \
-            > "$log_dir/${name}.log" 2>&1
+        claude --dangerously-skip-permissions -p "$prompt" >> "$log_file" 2>&1
+        echo "[$(date)] Agent $name exited with code $?" >> "$log_file"
     ) &
 
     local pid=$!
@@ -519,15 +521,17 @@ spawn_agent_with_perspective() {
     prompt="${prompt//\{PHASE_LIMIT\}/$phase_limit}"
 
     # Spawn Claude Code in background
+    local log_file="$log_dir/${name}.log"
     (
         cd "$project_dir"
+        echo "[$(date)] Agent $name starting (phase: $phase_id, perspective: $perspective)" >> "$log_file"
         PM_AGENT_NAME="$name" \
         PM_TASK_ID="$task_id" \
         PM_PHASE_ID="$phase_id" \
         PM_ROLE="$perspective" \
         PM_CLI="$PM_CLI" \
-        claude --dangerously-skip-permissions -p "$prompt" \
-            > "$log_dir/${name}.log" 2>&1
+        claude --dangerously-skip-permissions -p "$prompt" >> "$log_file" 2>&1
+        echo "[$(date)] Agent $name exited with code $?" >> "$log_file"
     ) &
 
     local pid=$!
@@ -564,6 +568,24 @@ EOF
     echo '{"agents":{}}' > "$pm_dir/agents.json"
 
     echo "Initialized plasmodium in $PWD"
+
+    # Start dashboard in background on first available port
+    local port=3456
+    while lsof -i :$port >/dev/null 2>&1; do
+        port=$((port + 1))
+    done
+
+    local dashboard_dir="$PM_SCRIPT_DIR/dashboard"
+    local server="$dashboard_dir/server.py"
+
+    if [[ -f "$server" ]]; then
+        nohup python3 "$server" --port "$port" --pm-dir "$PWD/$pm_dir" > "$pm_dir/dashboard.log" 2>&1 &
+        echo "$!" > "$pm_dir/dashboard.pid"
+        echo ""
+        echo "Dashboard: http://localhost:$port"
+        echo ""
+        echo "Next: pm task \"your task description\""
+    fi
 }
 
 pm_reset() {
@@ -613,6 +635,9 @@ pm_task() {
 
     echo "Spawning owner agent..."
     spawn_agent "$owner" "$task_id" "$prompt_file"
+    echo ""
+    echo "Owner is analyzing the task and will create phases."
+    echo "Monitor progress: pm status"
 }
 
 pm_status() {
