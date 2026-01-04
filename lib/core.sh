@@ -480,6 +480,7 @@ spawn_agent() {
     prompt="${prompt//\{TASK_ID\}/$task_id}"
     prompt="${prompt//\{PHASE_ID\}/$phase_id}"
     prompt="${prompt//\{ROLE\}/$role}"
+    prompt="${prompt//\{PM_DIR\}/$pm_dir}"
 
     # Get task description
     local task=$(get_task "$task_id")
@@ -557,6 +558,19 @@ spawn_agent_with_perspective() {
         prompt="## Project Context (from Explore agent)
 
 $context
+
+---
+
+$prompt"
+    fi
+
+    # Inject phase history if available
+    local history_file="$pm_dir/tasks/$task_id/phase_history.md"
+    if [[ -f "$history_file" ]] && [[ -s "$history_file" ]]; then
+        local history=$(cat "$history_file")
+        prompt="## Previous Phases
+
+$history
 
 ---
 
@@ -736,43 +750,29 @@ pm_task() {
 
     echo "Created task: $task_id"
     echo "Owner: @$owner"
-    echo ""
+
+    # Background the entire explore → owner sequence
+    _run_task_agents "$task_id" "$owner" &
+    disown
+}
+
+# Helper to run explore then owner (called in background)
+_run_task_agents() {
+    local task_id="$1"
+    local owner="$2"
 
     # Phase 1: Explore agent maps the project
     local explore_prompt="$PM_SCRIPT_DIR/prompts/explore.md"
     if [[ -f "$explore_prompt" ]]; then
         local explorer=$(gen_agent_name)
-        echo "Phase 1: Exploring project structure..."
-        echo "Explorer: @$explorer"
-        echo ""
-
         spawn_explore_agent "$explorer" "$task_id"
-
-        # Check if context was written
-        local pm_dir=$(get_pm_dir)
-        local context_file="$pm_dir/tasks/$task_id/context.md"
-        if [[ -f "$context_file" ]]; then
-            echo ""
-            echo "Project context captured."
-        else
-            echo ""
-            echo "Warning: Explore agent didn't write context.md"
-        fi
-        echo ""
     fi
 
     # Phase 2: Owner agent takes over
     local owner_prompt="$PM_SCRIPT_DIR/prompts/owner.md"
-    if [[ ! -f "$owner_prompt" ]]; then
-        echo "Warning: Owner prompt not found at $owner_prompt" >&2
-        echo "Agent not spawned - create the prompt file first" >&2
-        return 0
+    if [[ -f "$owner_prompt" ]]; then
+        spawn_agent "$owner" "$task_id" "$owner_prompt"
     fi
-
-    echo "Phase 2: Spawning owner agent..."
-    spawn_agent "$owner" "$task_id" "$owner_prompt"
-    echo ""
-    echo "Owner is orchestrating. Monitor: pm status"
 }
 
 pm_status() {

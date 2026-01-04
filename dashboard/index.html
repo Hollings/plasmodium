@@ -137,6 +137,46 @@
             color: #f85149;
         }
 
+        .task-status.ready {
+            background: rgba(240, 136, 62, 0.15);
+            color: #f0883e;
+        }
+
+        .task-status.merged {
+            background: rgba(163, 113, 247, 0.15);
+            color: #a371f7;
+        }
+
+        .task-status.needs-work {
+            background: rgba(248, 81, 73, 0.15);
+            color: #f85149;
+        }
+
+        /* Merge queue indicator */
+        .merge-queue {
+            background: rgba(240, 136, 62, 0.1);
+            border: 1px solid rgba(240, 136, 62, 0.3);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .merge-queue-icon {
+            font-size: 20px;
+        }
+
+        .merge-queue-text {
+            flex: 1;
+        }
+
+        .merge-queue-count {
+            font-weight: 600;
+            color: #f0883e;
+        }
+
         .task-body {
             padding: 0;
             max-height: 0;
@@ -562,7 +602,19 @@
                 return;
             }
 
-            container.innerHTML = data.tasks.map(task => `
+            // Count ready tasks for merge queue
+            const readyCount = data.tasks.filter(t => t.status === 'ready').length;
+            const mergeQueueHtml = readyCount > 0 ? `
+                <div class="merge-queue">
+                    <span class="merge-queue-icon">🔀</span>
+                    <span class="merge-queue-text">
+                        <span class="merge-queue-count">${readyCount}</span> task${readyCount > 1 ? 's' : ''} ready for merge
+                    </span>
+                    <span style="font-size: 12px; color: #8b949e;">Run: pm merge</span>
+                </div>
+            ` : '';
+
+            container.innerHTML = mergeQueueHtml + data.tasks.map(task => `
                 <div class="task expanded" data-task-id="${escapeHtml(task.id)}">
                     <div class="task-header">
                         <div>

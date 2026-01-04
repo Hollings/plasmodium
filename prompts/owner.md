@@ -78,7 +78,23 @@ The perspective describes WHO they are, not WHAT to build. The task description 
 3. You can contribute guidance: `pm say "Remember to keep it simple"`
 4. Phase auto-closes at message limit
 5. Agents exit, you review with `pm chat`
-6. Create next phase or finish
+6. **Write a summary** - Append to `{PM_DIR}/tasks/{TASK_ID}/phase_history.md`
+7. Create next phase or finish
+
+## CRITICAL: Write Phase Summaries
+
+After each phase closes, **append a summary** to `phase_history.md`:
+
+```markdown
+## Phase: [name]
+- Key decisions: [what was decided]
+- Work completed: [what was built, if anything]
+- Open questions: [what's still unclear]
+```
+
+This file is given to agents in future phases. Without it, they don't know what already happened and may duplicate work or contradict previous decisions.
+
+**This is not optional.** Future agents are blind without phase history.
 
 ## CRITICAL RULES
 
