@@ -2,185 +2,296 @@
 """
 Plasmodium Dashboard Server
 
-Serves the dashboard and handles spore/worker management.
-Run from the project root: python3 .plasmodium/server.py
+Simple HTTP server that serves the dashboard and provides API endpoints
+for reading task/phase/agent data from .plasmodium directory.
+
+Endpoints:
+- GET /              -> serves index.html
+- GET /api/overview  -> all tasks, phases, agents
+- GET /api/messages?phase_id=ph-xxx -> messages for a specific phase
 """
 
-import http.server
 import json
 import os
 import re
-import subprocess
-import sys
-from datetime import datetime, timezone
-from urllib.parse import parse_qs
+import signal
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from pathlib import Path
+from urllib.parse import urlparse, parse_qs
 
-DEFAULT_PORT = 3456
-PLASMODIUM_DIR = os.path.dirname(os.path.abspath(__file__))
+PLASMODIUM_DIR = Path(".plasmodium")
+SCRIPT_DIR = Path(__file__).parent.absolute()
 
-# Load config to get pm CLI path
-def get_pm_cli():
-    config_path = os.path.join(PLASMODIUM_DIR, 'config.json')
-    if os.path.exists(config_path):
-        with open(config_path) as f:
-            config = json.load(f)
-            return config.get('pm_cli', 'pm')
-    return 'pm'
+# Phase IDs should match this pattern (e.g., ph-abc123)
+PHASE_ID_PATTERN = re.compile(r'^ph-[a-f0-9]+$')
 
-PM_CLI = get_pm_cli()
 
-class PlasmodiumHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=PLASMODIUM_DIR, **kwargs)
+def is_process_alive(pid: int) -> bool:
+    """Check if a process with given PID is running."""
+    if pid is None:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
 
-    def do_POST(self):
-        if self.path == '/spore':
-            self.handle_create_spore()
-        else:
-            self.send_error(404, 'Not Found')
 
-    def do_PUT(self):
-        # Match /worker/<name>
-        match = re.match(r'^/worker/(\w+)$', self.path)
-        if match:
-            self.handle_update_worker(match.group(1))
-        else:
-            self.send_error(404, 'Not Found')
+def load_json_file(path: Path) -> dict | list | None:
+    """Load JSON from file, return None if missing or invalid."""
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
-    def handle_update_worker(self, name):
-        content_length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_length).decode('utf-8')
 
-        try:
-            data = json.loads(body)
-        except json.JSONDecodeError:
-            self.send_error(400, 'Invalid JSON')
-            return
+def load_jsonl_file(path: Path) -> list[dict]:
+    """Load JSONL file (one JSON object per line)."""
+    messages = []
+    try:
+        with open(path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        messages.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+    except FileNotFoundError:
+        pass
+    return messages
 
-        workers_path = os.path.join(PLASMODIUM_DIR, 'workers.json')
 
-        # Read current workers
-        try:
-            with open(workers_path, 'r') as f:
-                workers_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            workers_data = {"workers": {}}
+def get_overview() -> dict:
+    """
+    Build complete overview of all tasks, phases, and agents.
+    Returns structure suitable for dashboard rendering.
+    """
+    result = {
+        "tasks": [],
+        "agents": [],
+    }
 
-        if name not in workers_data.get("workers", {}):
-            self.send_error(404, f'Worker {name} not found')
-            return
+    # Load agents
+    agents_data = load_json_file(PLASMODIUM_DIR / "agents.json")
+    if agents_data and "agents" in agents_data:
+        for name, agent in agents_data["agents"].items():
+            agent_info = {
+                "name": name,
+                "task_id": agent.get("task_id"),
+                "phase_id": agent.get("phase_id"),
+                "role": agent.get("role"),
+                "pid": agent.get("pid"),
+                "alive": is_process_alive(agent.get("pid")),
+                "registered_at": agent.get("registered_at"),
+            }
+            result["agents"].append(agent_info)
 
-        # Update worker status
-        now = datetime.now(timezone.utc)
-        worker = workers_data["workers"][name]
+    # Load tasks
+    tasks_dir = PLASMODIUM_DIR / "tasks"
+    if tasks_dir.exists():
+        for task_dir in tasks_dir.iterdir():
+            if not task_dir.is_dir():
+                continue
 
-        if "status" in data:
-            worker["status"] = data["status"]
-            worker["lastActive"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            task_data = load_json_file(task_dir / "task.json")
+            if not task_data:
+                continue
 
-            # Log status change to signals
-            signals_path = os.path.join(PLASMODIUM_DIR, 'signals.log')
-            timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-            signal = f"[{timestamp}] @{name}: status -> {data['status']}\n"
-            with open(signals_path, 'a') as f:
-                f.write(signal)
+            task_info = {
+                "id": task_data.get("id"),
+                "description": task_data.get("description"),
+                "owner": task_data.get("owner"),
+                "status": task_data.get("status"),
+                "created_at": task_data.get("created_at"),
+                "phases": [],
+            }
 
-        # Write back
-        with open(workers_path, 'w') as f:
-            json.dump(workers_data, f, indent=2)
-            f.write('\n')
+            # Load phases for this task
+            phases_dir = task_dir / "phases"
+            if phases_dir.exists():
+                for phase_dir in phases_dir.iterdir():
+                    if not phase_dir.is_dir():
+                        continue
 
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps({"status": "updated", "worker": name}).encode())
+                    phase_data = load_json_file(phase_dir / "phase.json")
+                    if not phase_data:
+                        continue
 
-    def handle_create_spore(self):
-        content_length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_length).decode('utf-8')
+                    # Count messages
+                    messages = load_jsonl_file(phase_dir / "messages.jsonl")
+                    message_count = len(messages)
 
-        try:
-            data = json.loads(body)
-            task = data.get('task', '').strip()
-        except json.JSONDecodeError:
-            self.send_error(400, 'Invalid JSON')
-            return
+                    phase_info = {
+                        "id": phase_data.get("id"),
+                        "task_id": phase_data.get("task_id"),
+                        "name": phase_data.get("name"),
+                        "status": phase_data.get("status"),
+                        "message_limit": phase_data.get("message_limit"),
+                        "message_count": message_count,
+                        "roles": phase_data.get("roles", []),
+                        "created_at": phase_data.get("created_at"),
+                    }
+                    task_info["phases"].append(phase_info)
 
-        if not task:
-            self.send_error(400, 'Task description required')
-            return
+                # Sort phases by created_at
+                task_info["phases"].sort(key=lambda p: p.get("created_at", ""))
 
-        # Find pm script - go up from .plasmodium to project root
-        project_root = os.path.dirname(PLASMODIUM_DIR)
+            result["tasks"].append(task_info)
 
-        # Use pm new which handles spore creation AND auto-spawns a worker
-        try:
-            result = subprocess.run(
-                [PM_CLI, 'new', task],
-                cwd=project_root,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                start_new_session=True  # Detach from spawned background processes
-            )
+    # Sort tasks by created_at (newest first)
+    result["tasks"].sort(key=lambda t: t.get("created_at", ""), reverse=True)
 
-            # Parse spore ID from output (last line should be the ID)
-            output_lines = result.stdout.strip().split('\n')
-            spore_id = output_lines[-1] if output_lines else 'unknown'
+    return result
 
-            self.send_response(201)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "id": spore_id,
-                "status": "created",
-                "auto_spawned": True
-            }).encode())
 
-        except subprocess.TimeoutExpired:
-            self.send_error(500, 'Timeout creating spore')
-        except Exception as e:
-            self.send_error(500, f'Error: {str(e)}')
+def get_messages(phase_id: str) -> dict:
+    """
+    Get all messages for a specific phase.
+    """
+    result = {
+        "phase_id": phase_id,
+        "messages": [],
+        "error": None,
+    }
+
+    # Validate phase_id format to prevent path traversal
+    if not PHASE_ID_PATTERN.match(phase_id):
+        result["error"] = "Invalid phase_id format"
+        return result
+
+    # Find the phase directory
+    tasks_dir = PLASMODIUM_DIR / "tasks"
+    if not tasks_dir.exists():
+        result["error"] = "No tasks directory"
+        return result
+
+    # Search all tasks for this phase
+    for task_dir in tasks_dir.iterdir():
+        if not task_dir.is_dir():
+            continue
+
+        phase_dir = task_dir / "phases" / phase_id
+        if phase_dir.exists():
+            messages = load_jsonl_file(phase_dir / "messages.jsonl")
+            result["messages"] = messages
+            return result
+
+    result["error"] = f"Phase {phase_id} not found"
+    return result
+
+
+class DashboardHandler(SimpleHTTPRequestHandler):
+    """HTTP request handler for the dashboard."""
 
     def log_message(self, format, *args):
-        # Quieter logging
+        """Suppress default logging."""
         pass
 
-def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT
-    max_attempts = 10
+    def send_json(self, data: dict, status: int = 200):
+        """Send JSON response."""
+        body = json.dumps(data, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", len(body))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
 
-    for attempt in range(max_attempts):
-        try:
-            httpd = http.server.HTTPServer(('0.0.0.0', port), PlasmodiumHandler)
+    def do_GET(self):
+        """Handle GET requests."""
+        parsed = urlparse(self.path)
+        path = parsed.path
 
-            # Write port to file for background mode
-            port_file = os.path.join(PLASMODIUM_DIR, '.dashboard_port')
-            with open(port_file, 'w') as f:
-                f.write(str(port))
+        if path == "/api/overview":
+            try:
+                data = get_overview()
+                self.send_json(data)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
 
-            print(f"Plasmodium Dashboard: http://localhost:{port}")
-            print(f"Serving from: {PLASMODIUM_DIR}")
-            print("Press Ctrl+C to stop\n")
-            sys.stdout.flush()
+        elif path == "/api/messages":
+            query = parse_qs(parsed.query)
+            phase_id = query.get("phase_id", [None])[0]
+
+            if not phase_id:
+                self.send_json({"error": "phase_id query param required"}, 400)
+                return
 
             try:
-                httpd.serve_forever()
-            except KeyboardInterrupt:
-                print("\nShutting down...")
-            finally:
-                httpd.server_close()
-                if os.path.exists(port_file):
-                    os.remove(port_file)
-            return
-        except OSError as e:
-            if e.errno == 48:  # Address already in use
-                port += 1
-            else:
-                raise
+                data = get_messages(phase_id)
+                self.send_json(data)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
 
-    print(f"Could not find open port after {max_attempts} attempts", file=sys.stderr)
-    sys.exit(1)
+        elif path == "/" or path == "/index.html":
+            # Serve index.html
+            try:
+                with open("index.html", "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", len(content))
+                self.end_headers()
+                self.wfile.write(content)
+            except FileNotFoundError:
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"index.html not found")
 
-if __name__ == '__main__':
+        else:
+            # Serve static files
+            super().do_GET()
+
+
+def main():
+    import sys
+    global PLASMODIUM_DIR
+
+    host = "0.0.0.0"
+    port = 3456
+    pm_dir = None
+
+    # Parse args
+    args = sys.argv[1:]
+    i = 0
+    while i < len(args):
+        if args[i] == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+            i += 2
+        elif args[i] == "--pm-dir" and i + 1 < len(args):
+            pm_dir = args[i + 1]
+            i += 2
+        elif args[i].isdigit():
+            port = int(args[i])
+            i += 1
+        else:
+            i += 1
+
+    # Set plasmodium directory
+    if pm_dir:
+        PLASMODIUM_DIR = Path(pm_dir)
+
+    if not PLASMODIUM_DIR.exists():
+        print(f"Error: {PLASMODIUM_DIR} not found")
+        print("Run from a plasmodium project or use --pm-dir")
+        sys.exit(1)
+
+    # Change to script dir so index.html is found
+    os.chdir(SCRIPT_DIR)
+
+    server = HTTPServer((host, port), DashboardHandler)
+    print(f"Dashboard: http://localhost:{port}")
+    print(f"Watching: {PLASMODIUM_DIR.absolute()}")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped")
+        server.shutdown()
+
+
+if __name__ == "__main__":
     main()

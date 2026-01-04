@@ -1207,6 +1207,22 @@ pm_work_done() {
 }
 
 pm_dashboard() {
-    # Placeholder - will implement later
-    echo "pm dashboard not yet implemented"
+    local port="${1:-3456}"
+    local pm_dir=$(get_pm_dir)
+
+    if [[ -z "$pm_dir" ]]; then
+        echo "Error: Not in a plasmodium project. Run 'pm init' first." >&2
+        exit 1
+    fi
+
+    local dashboard_dir="$PM_SCRIPT_DIR/dashboard"
+    local server="$dashboard_dir/server.py"
+
+    if [[ ! -f "$server" ]]; then
+        echo "Error: Dashboard server not found at $server" >&2
+        exit 1
+    fi
+
+    echo "Starting dashboard..."
+    python3 "$server" --port "$port" --pm-dir "$pm_dir"
 }

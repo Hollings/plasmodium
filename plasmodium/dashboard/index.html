@@ -6,38 +6,46 @@
     <title>Plasmodium Dashboard</title>
     <style>
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
 
         body {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #0d1117;
             color: #c9d1d9;
             min-height: 100vh;
-            padding: 20px;
         }
 
-        .header {
+        header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+
+        .status-indicator {
             display: flex;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #30363d;
-        }
-
-        .header h1 {
-            font-size: 1.5em;
-            color: #58a6ff;
+            gap: 8px;
+            font-size: 12px;
+            color: #8b949e;
         }
 
         .status-dot {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: #238636;
+            background: #3fb950;
             animation: pulse 2s infinite;
         }
 
@@ -46,808 +54,611 @@
             50% { opacity: 0.5; }
         }
 
-        .grid {
+        .container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto 1fr;
-            gap: 20px;
-            height: calc(100vh - 100px);
+            grid-template-columns: 1fr 400px;
+            height: calc(100vh - 57px);
         }
 
-        .panel {
+        .main-panel {
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .sidebar {
             background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            overflow: hidden;
+            border-left: 1px solid #30363d;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
 
-        .panel-header {
-            padding: 12px 15px;
-            background: #21262d;
-            border-bottom: 1px solid #30363d;
-            font-weight: bold;
-            font-size: 0.9em;
-            color: #8b949e;
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            color: #8b949e;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
         }
 
-        .panel-content {
-            padding: 15px;
-            overflow-y: auto;
-            flex: 1;
+        /* Tasks */
+        .task {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            margin-bottom: 16px;
         }
 
-        /* Workers Panel */
-        .workers-panel {
-            grid-column: 1 / -1;
-        }
-
-        .workers-list {
+        .task-header {
+            padding: 16px;
+            border-bottom: 1px solid #30363d;
+            cursor: pointer;
             display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-start;
         }
 
-        .worker {
+        .task-header:hover {
+            background: #1f2428;
+        }
+
+        .task-title {
+            font-weight: 600;
+            color: #f0f6fc;
+            margin-bottom: 4px;
+        }
+
+        .task-meta {
+            font-size: 12px;
+            color: #8b949e;
+        }
+
+        .task-status {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .task-status.active {
+            background: rgba(56, 139, 253, 0.15);
+            color: #58a6ff;
+        }
+
+        .task-status.done {
+            background: rgba(63, 185, 80, 0.15);
+            color: #3fb950;
+        }
+
+        .task-status.killed {
+            background: rgba(248, 81, 73, 0.15);
+            color: #f85149;
+        }
+
+        .task-body {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .task.expanded .task-body {
+            max-height: 1000px;
+        }
+
+        /* Phases */
+        .phase {
+            padding: 12px 16px;
+            border-bottom: 1px solid #21262d;
+            cursor: pointer;
+        }
+
+        .phase:hover {
+            background: #1f2428;
+        }
+
+        .phase:last-child {
+            border-bottom: none;
+        }
+
+        .phase-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .phase-name {
+            font-weight: 500;
+            color: #c9d1d9;
+        }
+
+        .phase-status {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .phase-status.active {
+            background: rgba(56, 139, 253, 0.15);
+            color: #58a6ff;
+        }
+
+        .phase-status.closed {
+            background: rgba(139, 148, 158, 0.15);
+            color: #8b949e;
+        }
+
+        .phase-progress {
+            height: 4px;
+            background: #21262d;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .phase-progress-bar {
+            height: 100%;
+            background: #58a6ff;
+            transition: width 0.3s ease;
+        }
+
+        .phase-meta {
+            font-size: 11px;
+            color: #8b949e;
+        }
+
+        .phase.selected {
+            background: #1f2937;
+            border-left: 3px solid #58a6ff;
+        }
+
+        /* Messages Panel */
+        .messages-header {
+            padding: 16px;
+            border-bottom: 1px solid #30363d;
+            background: #0d1117;
+        }
+
+        .messages-title {
+            font-weight: 600;
+            color: #f0f6fc;
+            margin-bottom: 4px;
+        }
+
+        .messages-subtitle {
+            font-size: 12px;
+            color: #8b949e;
+        }
+
+        .messages-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .message:last-child {
+            border-bottom: none;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .message-author {
+            font-weight: 600;
+            color: #58a6ff;
+        }
+
+        .message-author.system {
+            color: #8b949e;
+        }
+
+        .message-role {
+            font-size: 11px;
+            color: #8b949e;
+            background: #21262d;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #484f58;
+        }
+
+        .message-content {
+            color: #c9d1d9;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Agents Section */
+        .agents-section {
+            padding: 16px;
+            border-top: 1px solid #30363d;
+            background: #0d1117;
+        }
+
+        .agent {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 15px;
-            background: #21262d;
-            border-radius: 6px;
-            border: 1px solid #30363d;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #21262d;
         }
 
-        .worker-status {
+        .agent:last-child {
+            border-bottom: none;
+        }
+
+        .agent-status {
             width: 8px;
             height: 8px;
             border-radius: 50%;
         }
 
-        .worker-status.active { background: #238636; }
-        .worker-status.idle { background: #8b949e; }
-
-        .worker-name {
-            color: #58a6ff;
-            font-weight: bold;
+        .agent-status.alive {
+            background: #3fb950;
         }
 
-        .worker-task {
-            color: #8b949e;
-            font-size: 0.85em;
+        .agent-status.dead {
+            background: #f85149;
         }
 
-        .worker-idle-time {
-            color: #6e7681;
-            font-size: 0.8em;
-        }
-
-        .worker.idle {
-            opacity: 0.7;
-        }
-
-        /* Signals Panel */
-        .signals-panel {
-            grid-row: 2;
-        }
-
-        .signal {
-            padding: 8px 0;
-            border-bottom: 1px solid #21262d;
-            font-size: 0.9em;
-            line-height: 1.4;
-        }
-
-        .signal:last-child {
-            border-bottom: none;
-        }
-
-        .signal-time {
-            color: #484f58;
-            margin-right: 8px;
-        }
-
-        .signal-worker {
-            color: #f0883e;
-            font-weight: bold;
-        }
-
-        .signal-text {
-            color: #c9d1d9;
-        }
-
-        /* Spores Panel */
-        .spores-panel {
-            grid-row: 2;
-        }
-
-        .spore {
-            padding: 10px;
-            margin-bottom: 10px;
-            background: #21262d;
-            border-radius: 6px;
-            border-left: 3px solid #30363d;
-        }
-
-        .spore.status-raw { border-left-color: #8b949e; }
-        .spore.status-exploring { border-left-color: #a371f7; }
-        .spore.status-executing { border-left-color: #f0883e; }
-        .spore.status-done { border-left-color: #238636; }
-
-        .spore-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
-        .spore-id {
-            font-size: 0.8em;
-            color: #58a6ff;
-        }
-
-        .spore-status {
-            font-size: 0.75em;
-            padding: 2px 8px;
-            border-radius: 10px;
-            text-transform: uppercase;
-        }
-
-        .spore-status.raw { background: #30363d; color: #8b949e; }
-        .spore-status.exploring { background: #3d2a5c; color: #a371f7; }
-        .spore-status.executing { background: #5c3d1e; color: #f0883e; }
-        .spore-status.done { background: #1c4428; color: #3fb950; }
-
-        .spore-task {
-            font-size: 0.9em;
-            margin-bottom: 6px;
-        }
-
-        .spore-meta {
-            font-size: 0.8em;
-            color: #6e7681;
-        }
-
-        .spore-fruit {
-            margin-top: 8px;
-            padding: 8px;
-            background: #1c4428;
-            border-radius: 4px;
-            font-size: 0.85em;
-            color: #3fb950;
-        }
-
-        .empty-state {
-            color: #484f58;
-            font-style: italic;
-            text-align: center;
-            padding: 20px;
-        }
-
-        /* Signal Filters */
-        .filter-buttons {
-            float: right;
-            display: flex;
-            gap: 5px;
-        }
-
-        .filter-btn {
-            padding: 3px 8px;
-            background: transparent;
-            border: 1px solid #30363d;
-            border-radius: 4px;
-            color: #8b949e;
-            font-size: 0.75em;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .filter-btn:hover {
-            border-color: #58a6ff;
-            color: #58a6ff;
-        }
-
-        .filter-btn.active {
-            background: #21262d;
-            border-color: #58a6ff;
-            color: #58a6ff;
-        }
-
-        .signal.system {
-            opacity: 0.7;
-        }
-
-        .signal.system .signal-text {
-            color: #6e7681;
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-        }
-
-        .modal.show {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 20px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 24px;
-            cursor: pointer;
-            color: #8b949e;
-        }
-
-        .modal-close:hover {
-            color: #c9d1d9;
-        }
-
-        .modal-header {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #30363d;
-        }
-
-        .modal-header h2 {
-            font-size: 1.1em;
-            color: #58a6ff;
-            margin-bottom: 5px;
-        }
-
-        .modal-header .status {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.8em;
-        }
-
-        .modal-section {
-            margin-bottom: 15px;
-        }
-
-        .modal-section h3 {
-            font-size: 0.85em;
-            color: #8b949e;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
-
-        .modal-section pre {
-            background: #0d1117;
-            padding: 12px;
-            border-radius: 6px;
-            overflow-x: auto;
-            font-size: 0.85em;
-            white-space: pre-wrap;
-        }
-
-        .modal-section p {
-            font-size: 0.9em;
-        }
-
-        .spore {
-            cursor: pointer;
-        }
-
-        .spore:hover {
-            border-color: #58a6ff;
-        }
-
-        .refresh-info {
-            font-size: 0.8em;
-            color: #484f58;
-        }
-
-        /* Task Form */
-        .task-form {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .task-input {
+        .agent-info {
             flex: 1;
-            padding: 12px 15px;
-            background: #21262d;
-            border: 1px solid #30363d;
-            border-radius: 6px;
+            min-width: 0;
+        }
+
+        .agent-name {
+            font-weight: 500;
             color: #c9d1d9;
-            font-family: inherit;
-            font-size: 0.95em;
+            font-size: 13px;
         }
 
-        .task-input:focus {
-            outline: none;
-            border-color: #58a6ff;
-            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+        .agent-detail {
+            font-size: 11px;
+            color: #8b949e;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .task-input::placeholder {
-            color: #6e7681;
+        /* Empty states */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: #8b949e;
         }
 
-        .task-submit {
-            padding: 12px 24px;
-            background: #238636;
-            border: none;
-            border-radius: 6px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 0.95em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.15s;
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
         }
 
-        .task-submit:hover {
-            background: #2ea043;
-        }
+        /* Responsive */
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
 
-        .task-submit:disabled {
-            background: #21262d;
-            color: #6e7681;
-            cursor: not-allowed;
-        }
-
-        .form-message {
-            padding: 10px 15px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 0.9em;
-            display: none;
-        }
-
-        .form-message.success {
-            display: block;
-            background: #1c4428;
-            border: 1px solid #238636;
-            color: #3fb950;
-        }
-
-        .form-message.error {
-            display: block;
-            background: #3d1a1a;
-            border: 1px solid #f85149;
-            color: #f85149;
+            .sidebar {
+                border-left: none;
+                border-top: 1px solid #30363d;
+                max-height: 50vh;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="status-dot"></div>
-        <h1>Plasmodium Network</h1>
-        <span class="refresh-info">Auto-refreshes every 2s</span>
-    </div>
-
-    <div id="form-message" class="form-message"></div>
-
-    <!-- Spore Modal -->
-    <div id="spore-modal" class="modal">
-        <div class="modal-content">
-            <span class="modal-close">&times;</span>
-            <div id="modal-body"></div>
+    <header>
+        <h1>Plasmodium Dashboard</h1>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span id="last-update">Connecting...</span>
         </div>
-    </div>
+    </header>
 
-    <form class="task-form" id="task-form">
-        <input type="text" class="task-input" id="task-input"
-               placeholder="Describe a new task for the colony..."
-               autocomplete="off">
-        <button type="submit" class="task-submit" id="task-submit">Create Spore</button>
-    </form>
-
-    <div class="grid">
-        <div class="panel workers-panel">
-            <div class="panel-header">Workers</div>
-            <div class="panel-content">
-                <div id="workers" class="workers-list">
-                    <div class="empty-state">Loading...</div>
+    <div class="container">
+        <div class="main-panel" id="tasks-panel">
+            <div class="section-title">Tasks</div>
+            <div id="tasks-list">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <div>Loading tasks...</div>
                 </div>
             </div>
         </div>
 
-        <div class="panel signals-panel">
-            <div class="panel-header">
-                Signals
-                <span class="filter-buttons">
-                    <button class="filter-btn active" data-filter="all">All</button>
-                    <button class="filter-btn" data-filter="chat">Chat</button>
-                    <button class="filter-btn" data-filter="system">System</button>
-                </span>
+        <div class="sidebar">
+            <div class="messages-header">
+                <div class="messages-title" id="messages-title">Phase Messages</div>
+                <div class="messages-subtitle" id="messages-subtitle">Select a phase to view messages</div>
             </div>
-            <div class="panel-content" id="signals">
-                <div class="empty-state">Loading...</div>
+            <div class="messages-list" id="messages-list">
+                <div class="empty-state">
+                    <div class="empty-state-icon">💬</div>
+                    <div>No phase selected</div>
+                </div>
             </div>
-        </div>
-
-        <div class="panel spores-panel">
-            <div class="panel-header">Spores</div>
-            <div class="panel-content" id="spores">
-                <div class="empty-state">Loading...</div>
+            <div class="agents-section">
+                <div class="section-title">Active Agents</div>
+                <div id="agents-list">
+                    <div class="empty-state" style="padding: 16px 0;">Loading...</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        const BASE_PATH = '.';
+        // State
+        let selectedPhaseId = null;
+        let overviewData = null;
 
-        async function fetchText(path) {
-            try {
-                const res = await fetch(`${BASE_PATH}/${path}?t=${Date.now()}`);
-                return await res.text();
-            } catch (e) {
-                console.error(`Failed to fetch ${path}:`, e);
-                return null;
-            }
-        }
+        // Format relative time
+        function timeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
 
-        async function fetchJson(path) {
-            const text = await fetchText(path);
-            if (!text) return null;
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                return null;
-            }
-        }
-
-        function parseSpores(text) {
-            if (!text) return [];
-            const lines = text.trim().split('\n').filter(l => l.trim());
-            const sporesById = new Map();
-
-            for (const line of lines) {
-                try {
-                    const spore = JSON.parse(line);
-                    sporesById.set(spore.id, spore);
-                } catch (e) {}
-            }
-
-            return Array.from(sporesById.values());
-        }
-
-        function parseSignals(text) {
-            if (!text) return [];
-            const lines = text.trim().split('\n');
-            const signals = [];
-
-            for (const line of lines) {
-                if (line.startsWith('#') || line.startsWith('---') || !line.trim()) continue;
-
-                const match = line.match(/^\[([^\]]+)\]\s+@(\w+):\s+(.+)$/);
-                if (match) {
-                    signals.push({
-                        time: match[1],
-                        worker: match[2],
-                        text: match[3]
-                    });
-                }
-            }
-
-            return signals.reverse();
-        }
-
-        function timeAgo(isoString) {
-            if (!isoString) return '';
-            const date = new Date(isoString);
-            const seconds = Math.floor((new Date() - date) / 1000);
             if (seconds < 60) return 'just now';
-            const minutes = Math.floor(seconds / 60);
-            if (minutes < 60) return `${minutes}m ago`;
-            const hours = Math.floor(minutes / 60);
-            if (hours < 24) return `${hours}h ago`;
-            const days = Math.floor(hours / 24);
-            return `${days}d ago`;
+            if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+            return Math.floor(seconds / 86400) + 'd ago';
         }
 
-        function renderWorkers(workers, spores) {
-            const container = document.getElementById('workers');
-
-            if (!workers || !workers.workers || Object.keys(workers.workers).length === 0) {
-                container.innerHTML = '<div class="empty-state">No workers active</div>';
-                return;
-            }
-
-            const activeSpores = spores.filter(s => s.status === 'executing' || s.status === 'exploring');
-            const workerTasks = new Map();
-            for (const spore of activeSpores) {
-                if (spore.claimed_by) {
-                    workerTasks.set(spore.claimed_by, spore.task);
-                }
-            }
-
-            // Filter out exited/finished workers, only show active ones
-            const activeWorkers = Object.entries(workers.workers)
-                .filter(([_, info]) => info.status !== 'exited' && info.status !== 'done');
-
-            if (activeWorkers.length === 0) {
-                container.innerHTML = '<div class="empty-state">No workers active</div>';
-                return;
-            }
-
-            // Sort: working > exploring > idle
-            const workerEntries = activeWorkers.sort((a, b) => {
-                const aTask = workerTasks.has(a[0]);
-                const bTask = workerTasks.has(b[0]);
-                if (aTask !== bTask) return aTask ? -1 : 1;
-                const aTime = a[1].lastActive || a[1].started || '';
-                const bTime = b[1].lastActive || b[1].started || '';
-                return bTime.localeCompare(aTime);
+        // Format timestamp for messages
+        function formatTime(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
             });
+        }
 
-            container.innerHTML = workerEntries.map(([name, info]) => {
-                const task = workerTasks.get(name);
-                const status = info.status || 'active';
-                const isIdle = status === 'idle';
-                const idleTime = isIdle && info.lastActive ? timeAgo(info.lastActive) : '';
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Render tasks list
+        function renderTasks(data) {
+            const container = document.getElementById('tasks-list');
+
+            if (!data.tasks || data.tasks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <div>No tasks found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.tasks.map(task => `
+                <div class="task expanded" data-task-id="${escapeHtml(task.id)}">
+                    <div class="task-header">
+                        <div>
+                            <div class="task-title">${escapeHtml(task.description || 'Untitled')}</div>
+                            <div class="task-meta">
+                                ${escapeHtml(task.id)} · owner: ${escapeHtml(task.owner || 'unknown')} · ${timeAgo(task.created_at)}
+                            </div>
+                        </div>
+                        <span class="task-status ${task.status}">${escapeHtml(task.status || 'unknown')}</span>
+                    </div>
+                    <div class="task-body">
+                        ${renderPhases(task.phases)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render phases for a task
+        function renderPhases(phases) {
+            if (!phases || phases.length === 0) {
+                return '<div class="phase-meta" style="padding: 12px 16px;">No phases yet</div>';
+            }
+
+            return phases.map(phase => {
+                const progress = phase.message_limit ?
+                    Math.min(100, (phase.message_count / phase.message_limit) * 100) : 0;
+                const isSelected = phase.id === selectedPhaseId;
+
                 return `
-                    <div class="worker ${isIdle ? 'idle' : ''}">
-                        <div class="worker-status ${status}"></div>
-                        <span class="worker-name">@${name}</span>
-                        ${task ? `<span class="worker-task">${truncate(task, 50)}</span>` : ''}
-                        ${isIdle && idleTime ? `<span class="worker-idle-time">${idleTime}</span>` : ''}
+                    <div class="phase ${isSelected ? 'selected' : ''}"
+                         data-phase-id="${escapeHtml(phase.id)}"
+                         data-phase-name="${escapeHtml(phase.name || 'Unnamed')}">
+                        <div class="phase-header">
+                            <span class="phase-name">${escapeHtml(phase.name || 'Unnamed')}</span>
+                            <span class="phase-status ${phase.status}">${escapeHtml(phase.status || 'unknown')}</span>
+                        </div>
+                        <div class="phase-progress">
+                            <div class="phase-progress-bar" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="phase-meta">
+                            ${phase.message_count}/${phase.message_limit || '?'} messages
+                            ${phase.roles && phase.roles.length > 0 ? ' · ' + phase.roles.length + ' roles' : ''}
+                        </div>
                     </div>
                 `;
             }).join('');
         }
 
-        let signalFilter = 'all';
-        const systemKeywords = ['claimed', 'spawning', 'exploring', 'executing', 'fruited', 'PLAN for', 'APPROVED', 'REJECTED', 'created spore', 'nothing to do', 'exiting'];
+        // Render agents
+        function renderAgents(agents) {
+            const container = document.getElementById('agents-list');
 
-        function isSystemSignal(text) {
-            return systemKeywords.some(kw => text.includes(kw));
-        }
-
-        function renderSignals(signals) {
-            const container = document.getElementById('signals');
-
-            let filtered = signals;
-            if (signalFilter === 'chat') {
-                filtered = signals.filter(s => !isSystemSignal(s.text));
-            } else if (signalFilter === 'system') {
-                filtered = signals.filter(s => isSystemSignal(s.text));
-            }
-
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="empty-state">No signals yet</div>';
+            if (!agents || agents.length === 0) {
+                container.innerHTML = '<div style="color: #8b949e; font-size: 12px;">No agents registered</div>';
                 return;
             }
 
-            container.innerHTML = filtered.slice(0, 50).map(s => `
-                <div class="signal ${isSystemSignal(s.text) ? 'system' : 'chat'}">
-                    <span class="signal-time">${formatTime(s.time)}</span>
-                    <span class="signal-worker">@${s.worker}</span>
-                    <span class="signal-text">${escapeHtml(s.text)}</span>
+            container.innerHTML = agents.map(agent => `
+                <div class="agent">
+                    <div class="agent-status ${agent.alive ? 'alive' : 'dead'}"></div>
+                    <div class="agent-info">
+                        <div class="agent-name">${escapeHtml(agent.name)}</div>
+                        <div class="agent-detail">
+                            ${agent.role ? escapeHtml(agent.role) : 'No role'}
+                            ${agent.phase_id ? ' · ' + escapeHtml(agent.phase_id) : ''}
+                        </div>
+                    </div>
                 </div>
             `).join('');
         }
 
-        let sporesCache = [];
+        // Render messages
+        function renderMessages(data) {
+            const container = document.getElementById('messages-list');
 
-        function renderSpores(spores) {
-            sporesCache = spores;
-            const container = document.getElementById('spores');
-
-            if (spores.length === 0) {
-                container.innerHTML = '<div class="empty-state">No spores yet</div>';
+            if (data.error) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <div>${escapeHtml(data.error)}</div>
+                    </div>
+                `;
                 return;
             }
 
-            const sorted = [...spores].sort((a, b) => {
-                const order = {
-                    executing: 0,
-                    approved: 1,
-                    pending_approval: 2,
-                    exploring: 3,
-                    raw: 4,
-                    done: 5,
-                    blocked: 6
-                };
-                return (order[a.status] ?? 7) - (order[b.status] ?? 7);
-            });
+            if (!data.messages || data.messages.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <div>No messages yet</div>
+                    </div>
+                `;
+                return;
+            }
 
-            container.innerHTML = sorted.map(s => `
-                <div class="spore status-${s.status}" data-id="${s.id}">
-                    <div class="spore-header">
-                        <span class="spore-id">${s.id}</span>
-                        <span class="spore-status ${s.status}">${s.status}</span>
+            container.innerHTML = data.messages.map(msg => `
+                <div class="message">
+                    <div class="message-header">
+                        <div>
+                            <span class="message-author ${msg.author === 'system' ? 'system' : ''}">${escapeHtml(msg.author || 'unknown')}</span>
+                            ${msg.role ? `<span class="message-role">${escapeHtml(msg.role)}</span>` : ''}
+                        </div>
+                        <span class="message-time">${formatTime(msg.timestamp)}</span>
                     </div>
-                    <div class="spore-task">${escapeHtml(s.task)}</div>
-                    <div class="spore-meta">
-                        ${s.claimed_by ? `@${s.claimed_by}` : 'unclaimed'}
-                        ${s.phase ? ` · ${s.phase}` : ''}
-                    </div>
-                    ${s.fruit ? `<div class="spore-fruit">${escapeHtml(s.fruit)}</div>` : ''}
+                    <div class="message-content">${escapeHtml(msg.content || '')}</div>
                 </div>
             `).join('');
 
-            // Add click handlers
-            container.querySelectorAll('.spore').forEach(el => {
-                el.addEventListener('click', () => openSporeModal(el.dataset.id));
-            });
-        }
-
-        async function openSporeModal(id) {
-            const spore = sporesCache.find(s => s.id === id);
-            if (!spore) return;
-
-            const modal = document.getElementById('spore-modal');
-            const body = document.getElementById('modal-body');
-
-            // Try to fetch plan if exists
-            let planContent = null;
-            if (spore.plan_file) {
-                try {
-                    planContent = await fetchText(spore.plan_file);
-                } catch (e) {}
+            // Only auto-scroll if user is near bottom (within 100px)
+            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            if (isNearBottom) {
+                container.scrollTop = container.scrollHeight;
             }
-
-            body.innerHTML = `
-                <div class="modal-header">
-                    <h2>${spore.id}</h2>
-                    <span class="spore-status ${spore.status}">${spore.status}</span>
-                </div>
-
-                <div class="modal-section">
-                    <h3>Task</h3>
-                    <p>${escapeHtml(spore.task)}</p>
-                </div>
-
-                <div class="modal-section">
-                    <h3>Details</h3>
-                    <p>
-                        <strong>Claimed by:</strong> ${spore.claimed_by ? '@' + spore.claimed_by : 'unclaimed'}<br>
-                        <strong>Phase:</strong> ${spore.phase || 'none'}<br>
-                        <strong>Type:</strong> ${spore.type || 'task'}<br>
-                        ${spore.depends_on?.filter(d => d).length ? `<strong>Depends on:</strong> ${spore.depends_on.join(', ')}<br>` : ''}
-                        ${spore.approvals?.length ? `<strong>Approvals:</strong> ${spore.approvals.join(', ')}<br>` : ''}
-                    </p>
-                </div>
-
-                ${planContent ? `
-                <div class="modal-section">
-                    <h3>Plan</h3>
-                    <pre>${escapeHtml(planContent)}</pre>
-                </div>
-                ` : ''}
-
-                ${spore.fruit ? `
-                <div class="modal-section">
-                    <h3>Result</h3>
-                    <pre>${escapeHtml(spore.fruit)}</pre>
-                </div>
-                ` : ''}
-            `;
-
-            modal.classList.add('show');
         }
 
-        function closeModal() {
-            document.getElementById('spore-modal').classList.remove('show');
-        }
+        // Select a phase (called via event delegation)
+        function selectPhase(phaseId, phaseName) {
+            selectedPhaseId = phaseId;
 
-        // Modal close handlers
-        document.querySelector('.modal-close').addEventListener('click', closeModal);
-        document.getElementById('spore-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'spore-modal') closeModal();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
-        });
-
-        function formatTime(timeStr) {
-            const parts = timeStr.split(' ');
-            return parts[1] || timeStr;
-        }
-
-        function truncate(str, len) {
-            return str.length > len ? str.slice(0, len) + '...' : str;
-        }
-
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
-
-        async function refresh() {
-            const [workersData, sporesText, signalsText] = await Promise.all([
-                fetchJson('workers.json'),
-                fetchText('spores.jsonl'),
-                fetchText('signals.log')
-            ]);
-
-            const spores = parseSpores(sporesText);
-            const signals = parseSignals(signalsText);
-
-            renderWorkers(workersData, spores);
-            renderSignals(signals);
-            renderSpores(spores);
-        }
-
-        refresh();
-        setInterval(refresh, 2000);
-
-        // Signal filter buttons
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                signalFilter = btn.dataset.filter;
-                refresh();
+            // Update UI
+            document.querySelectorAll('.phase').forEach(el => {
+                el.classList.toggle('selected', el.dataset.phaseId === phaseId);
             });
-        });
 
-        // Task submission form
-        const form = document.getElementById('task-form');
-        const input = document.getElementById('task-input');
-        const submitBtn = document.getElementById('task-submit');
-        const message = document.getElementById('form-message');
+            document.getElementById('messages-title').textContent = phaseName || 'Phase Messages';
+            document.getElementById('messages-subtitle').textContent = phaseId;
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const task = input.value.trim();
-            if (!task) return;
+            // Fetch messages immediately
+            fetchMessages();
+        }
 
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Creating...';
-            message.className = 'form-message';
-            message.textContent = '';
+        // Fetch overview data
+        let overviewFetching = false;
+        async function fetchOverview() {
+            if (overviewFetching) return;
+            overviewFetching = true;
+            try {
+                const response = await fetch('/api/overview');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                overviewData = await response.json();
+
+                renderTasks(overviewData);
+                renderAgents(overviewData.agents);
+
+                document.getElementById('last-update').textContent =
+                    'Updated ' + new Date().toLocaleTimeString();
+            } catch (err) {
+                console.error('Failed to fetch overview:', err);
+                document.getElementById('last-update').textContent = 'Connection error';
+            } finally {
+                overviewFetching = false;
+            }
+        }
+
+        // Fetch messages for selected phase
+        let messagesFetching = false;
+        async function fetchMessages() {
+            if (!selectedPhaseId || messagesFetching) return;
+            messagesFetching = true;
 
             try {
-                const res = await fetch('/spore', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ task })
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    message.className = 'form-message success';
-                    message.textContent = `Spore ${data.id} created!`;
-                    input.value = '';
-                    setTimeout(() => location.reload(), 500);
-                } else {
-                    throw new Error(`Server responded ${res.status}`);
-                }
+                const response = await fetch(`/api/messages?phase_id=${encodeURIComponent(selectedPhaseId)}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                renderMessages(data);
             } catch (err) {
-                message.className = 'form-message error';
-                message.textContent = `Failed to create spore: ${err.message}. Make sure server.py is running.`;
+                console.error('Failed to fetch messages:', err);
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Spore';
+                messagesFetching = false;
+            }
+        }
+
+        // Event delegation for task and phase clicks
+        document.getElementById('tasks-list').addEventListener('click', (e) => {
+            // Handle task header click (toggle expand)
+            const taskHeader = e.target.closest('.task-header');
+            if (taskHeader) {
+                const task = taskHeader.closest('.task');
+                if (task) {
+                    task.classList.toggle('expanded');
+                }
+                return;
             }
 
-            // Hide message after 5s
-            setTimeout(() => {
-                message.className = 'form-message';
-            }, 5000);
+            // Handle phase click
+            const phase = e.target.closest('.phase');
+            if (phase) {
+                const phaseId = phase.dataset.phaseId;
+                const phaseName = phase.dataset.phaseName;
+                if (phaseId) {
+                    selectPhase(phaseId, phaseName);
+                }
+            }
         });
+
+        // Initialize
+        fetchOverview();
+
+        // Poll overview every 5 seconds
+        setInterval(fetchOverview, 5000);
+
+        // Poll messages every 2 seconds (when phase selected)
+        setInterval(fetchMessages, 2000);
     </script>
 </body>
 </html>

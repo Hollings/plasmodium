@@ -27,15 +27,18 @@ pm work-done "summary"     # Mark your work complete
 
 If your perspective says to build/implement/create something:
 1. Read `pm chat` to understand what's needed
-2. **Claim your work first**: `pm work "Building server.py"`
+2. **Discuss first** - Post your plan with `pm say` before diving into code
+   - "I'll build server.py with Flask, two endpoints"
+   - Wait for feedback/agreement from others
+3. **Then claim your work**: `pm work "Building server.py"`
    - This announces to the chat so others know what you're doing
    - Prevents duplicate work
-3. Build the actual files - write the code
-4. When done: `pm work-done "server.py complete with /api endpoints"`
+4. Build the actual files - write the code
+5. When done: `pm work-done "server.py complete with /api endpoints"`
    - This announces completion to the chat
    - Phase won't close until all work items are done
 
-**IMPORTANT**: If you see someone else already working on something, don't duplicate it. Check `pm work-status` to see active work.
+**IMPORTANT**: Don't go heads-down coding without discussing first. Check `pm chat` and `pm work-status` before starting.
 
 ## For Discussers
 
