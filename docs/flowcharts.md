@@ -64,8 +64,7 @@ flowchart TD
     E -->|No| F[pm say '...'<br/>share perspective]
     F --> B
 
-    E -->|Yes| G[pm say 'plan...'<br/>discuss first]
-    G --> H[pm work '...'<br/>claim work item]
+    E -->|Yes| H[pm work '...'<br/>claim work item]
     H --> I[Build / Code<br/>do the work]
     I --> J[pm work-done<br/>mark complete]
     J --> B
@@ -77,6 +76,16 @@ flowchart TD
     style H fill:#9e6a03,stroke:#d29922,color:#fff
     style J fill:#9e6a03,stroke:#d29922,color:#fff
 ```
+
+### Work Items
+
+Work items prevent duplicate work and premature phase closure:
+
+- `pm work "description"` — Claim work before starting (announces to chat)
+- `pm work-status` — See who's working on what
+- `pm work-done "summary"` — Mark complete when finished
+
+Phase won't close until **all work items are done**, even if message limit is reached.
 
 ## Legend
 
