@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 750">
   <defs>
     <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
       <polygon points="0 0, 10 3.5, 0 7" fill="#58a6ff"/>
@@ -9,124 +9,125 @@
   </defs>
 
   <style>
-    .box { fill: #161b22; stroke: #30363d; stroke-width: 2; rx: 8; filter: url(#shadow); }
+    .box { fill: #161b22; stroke: #30363d; stroke-width: 2; filter: url(#shadow); }
     .box-start { fill: #238636; stroke: #2ea043; }
     .box-end { fill: #da3633; stroke: #f85149; }
     .box-decision { fill: #1f6feb; stroke: #58a6ff; }
     .box-action { fill: #161b22; stroke: #30363d; }
     .box-work { fill: #9e6a03; stroke: #d29922; }
     .text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #c9d1d9; font-size: 14px; text-anchor: middle; }
-    .text-small { font-size: 12px; fill: #8b949e; }
+    .text-small { font-size: 11px; fill: #8b949e; }
     .text-bold { font-weight: 600; fill: #f0f6fc; }
+    .text-white { fill: #ffffff; }
     .arrow { stroke: #58a6ff; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
-    .label { font-size: 11px; fill: #3fb950; font-weight: 500; }
+    .label { font-size: 12px; fill: #3fb950; font-weight: 600; }
     .label-no { fill: #f85149; }
   </style>
 
   <!-- Background -->
-  <rect width="800" height="900" fill="#0d1117"/>
+  <rect width="800" height="750" fill="#0d1117"/>
 
   <!-- Title -->
-  <text x="400" y="40" class="text text-bold" font-size="20">Plasmodium Agent Workflow</text>
+  <text x="400" y="35" class="text text-bold" font-size="20">Phase Agent Workflow</text>
+  <text x="400" y="55" class="text text-small">Decision loop for agents within a phase</text>
 
   <!-- START -->
-  <rect x="325" y="70" width="150" height="50" class="box box-start" rx="25"/>
-  <text x="400" y="100" class="text text-bold">Agent Spawned</text>
+  <rect x="300" y="80" width="200" height="50" class="box box-start" rx="25"/>
+  <text x="400" y="105" class="text text-bold">Agent Spawned</text>
+  <text x="400" y="120" class="text text-small">with perspective</text>
 
   <!-- Arrow to Read Chat -->
-  <path d="M400 120 L400 160" class="arrow"/>
+  <path d="M400 130 L400 170" class="arrow"/>
 
   <!-- Read Chat -->
-  <rect x="300" y="160" width="200" height="50" class="box box-action"/>
-  <text x="400" y="190" class="text">pm chat</text>
-  <text x="400" y="205" class="text text-small">Read phase messages</text>
+  <rect x="300" y="170" width="200" height="50" class="box box-action" rx="8"/>
+  <text x="400" y="195" class="text text-bold">pm chat</text>
+  <text x="400" y="210" class="text text-small">Read phase messages</text>
 
   <!-- Arrow to Phase Check -->
-  <path d="M400 210 L400 250" class="arrow"/>
+  <path d="M400 220 L400 270" class="arrow"/>
 
-  <!-- Phase Closed? Diamond -->
-  <polygon points="400,250 480,295 400,340 320,295" class="box box-decision"/>
-  <text x="400" y="295" class="text text-small">Phase</text>
-  <text x="400" y="310" class="text text-small">closed?</text>
+  <!-- Phase Closed? - Wider diamond with better text -->
+  <polygon points="400,270 510,320 400,370 290,320" class="box box-decision"/>
+  <text x="400" y="315" class="text text-bold text-white" font-size="13">Phase closed?</text>
 
-  <!-- Yes arrow to Exit -->
-  <path d="M480 295 L560 295 L560 100 L510 100" class="arrow"/>
-  <text x="510" y="285" class="label">Yes</text>
+  <!-- Yes arrow to Exit (directly to the right) -->
+  <path d="M510 320 L580 320" class="arrow"/>
+  <text x="540" y="310" class="label">Yes</text>
 
-  <!-- EXIT -->
-  <rect x="510" y="75" width="100" height="50" class="box box-end" rx="25"/>
-  <text x="560" y="105" class="text text-bold">Exit</text>
+  <!-- EXIT (to the right of decision) -->
+  <rect x="580" y="295" width="100" height="50" class="box box-end" rx="25"/>
+  <text x="630" y="325" class="text text-bold">Exit</text>
 
   <!-- No arrow to Role Check -->
-  <path d="M400 340 L400 380" class="arrow"/>
-  <text x="415" y="365" class="label label-no">No</text>
+  <path d="M400 370 L400 420" class="arrow"/>
+  <text x="415" y="400" class="label label-no">No</text>
 
-  <!-- Role Decision Diamond -->
-  <polygon points="400,380 500,435 400,490 300,435" class="box box-decision"/>
-  <text x="400" y="430" class="text text-small">Your</text>
-  <text x="400" y="445" class="text text-small">perspective?</text>
+  <!-- Role Decision - Wider diamond -->
+  <polygon points="400,420 530,480 400,540 270,480" class="box box-decision"/>
+  <text x="400" y="470" class="text text-bold text-white" font-size="13">Implementer</text>
+  <text x="400" y="488" class="text text-bold text-white" font-size="13">role?</text>
 
   <!-- Discusser path (left) -->
-  <path d="M300 435 L180 435 L180 545" class="arrow"/>
-  <text x="225" y="425" class="label">Discusser</text>
+  <path d="M270 480 L170 480 L170 560" class="arrow"/>
+  <text x="210" y="470" class="label label-no">No</text>
 
   <!-- Say Message Box -->
-  <rect x="100" y="545" width="160" height="50" class="box box-action"/>
-  <text x="180" y="575" class="text">pm say "..."</text>
-  <text x="180" y="590" class="text text-small">Share perspective</text>
+  <rect x="90" y="560" width="160" height="50" class="box box-action" rx="8"/>
+  <text x="170" y="585" class="text text-bold">pm say "..."</text>
+  <text x="170" y="600" class="text text-small">Share perspective</text>
 
   <!-- Arrow back up from Say -->
-  <path d="M180 595 L180 650 L60 650 L60 185 L300 185" class="arrow"/>
+  <path d="M170 610 L170 660 L60 660 L60 195 L300 195" class="arrow"/>
 
   <!-- Implementer path (right) -->
-  <path d="M500 435 L620 435 L620 500" class="arrow"/>
-  <text x="545" y="425" class="label">Implementer</text>
+  <path d="M530 480 L620 480 L620 530" class="arrow"/>
+  <text x="560" y="470" class="label">Yes</text>
 
   <!-- Discuss Plan -->
-  <rect x="540" y="500" width="160" height="50" class="box box-action"/>
-  <text x="620" y="530" class="text">pm say "plan..."</text>
-  <text x="620" y="545" class="text text-small">Discuss before coding</text>
+  <rect x="540" y="530" width="160" height="45" class="box box-action" rx="8"/>
+  <text x="620" y="555" class="text text-bold">pm say "plan..."</text>
+  <text x="620" y="568" class="text text-small">Discuss first</text>
 
   <!-- Arrow to Claim Work -->
-  <path d="M620 550 L620 590" class="arrow"/>
+  <path d="M620 575 L620 610" class="arrow"/>
 
   <!-- Claim Work -->
-  <rect x="540" y="590" width="160" height="50" class="box box-work"/>
-  <text x="620" y="620" class="text">pm work "..."</text>
-  <text x="620" y="635" class="text text-small">Claim work item</text>
+  <rect x="540" y="610" width="160" height="45" class="box box-work" rx="8"/>
+  <text x="620" y="635" class="text text-bold">pm work "..."</text>
+  <text x="620" y="648" class="text text-small">Claim work item</text>
 
   <!-- Arrow to Do Work -->
-  <path d="M620 640 L620 680" class="arrow"/>
+  <path d="M620 655 L620 690" class="arrow"/>
 
   <!-- Do the Work -->
-  <rect x="540" y="680" width="160" height="50" class="box box-action"/>
-  <text x="620" y="710" class="text">Build / Code</text>
-  <text x="620" y="725" class="text text-small">Actually do the work</text>
+  <rect x="540" y="690" width="160" height="45" class="box box-action" rx="8"/>
+  <text x="620" y="715" class="text text-bold">Build / Code</text>
+  <text x="620" y="728" class="text text-small">Do the work</text>
 
   <!-- Arrow to Complete -->
-  <path d="M620 730 L620 770" class="arrow"/>
+  <path d="M700 712 L740 712 L740 195 L500 195" class="arrow"/>
 
-  <!-- Complete Work -->
-  <rect x="540" y="770" width="160" height="50" class="box box-work"/>
-  <text x="620" y="800" class="text">pm work-done "..."</text>
-  <text x="620" y="815" class="text text-small">Mark complete</text>
+  <!-- Complete Work (inline) -->
+  <rect x="540" y="745" width="160" height="45" class="box box-work" rx="8" transform="translate(0,-10)"/>
+  <text x="620" y="765" class="text text-bold">pm work-done</text>
+  <text x="620" y="778" class="text text-small">Mark complete</text>
 
-  <!-- Arrow back up from work-done -->
-  <path d="M620 820 L620 860 L740 860 L740 185 L500 185" class="arrow"/>
+  <!-- Arrow from work-done back -->
+  <path d="M620 735 L620 780 L740 780 L740 720" class="arrow" style="marker-end: none"/>
 
   <!-- Legend -->
-  <rect x="50" y="750" width="200" height="130" fill="#161b22" stroke="#30363d" rx="8"/>
-  <text x="150" y="775" class="text text-bold" font-size="12">Legend</text>
+  <rect x="50" y="650" width="95" height="95" fill="#161b22" stroke="#30363d" rx="8"/>
 
-  <rect x="65" y="790" width="20" height="15" class="box box-start" rx="4"/>
-  <text x="95" y="802" class="text text-small" text-anchor="start">Start/End</text>
+  <rect x="60" y="665" width="16" height="12" class="box box-decision" rx="2"/>
+  <text x="82" y="675" class="text text-small" text-anchor="start">Decision</text>
 
-  <rect x="65" y="815" width="20" height="15" class="box box-decision" rx="2"/>
-  <text x="95" y="827" class="text text-small" text-anchor="start">Decision</text>
+  <rect x="60" y="685" width="16" height="12" class="box box-action" rx="3"/>
+  <text x="82" y="695" class="text text-small" text-anchor="start">Action</text>
 
-  <rect x="65" y="840" width="20" height="15" class="box box-action" rx="4"/>
-  <text x="95" y="852" class="text text-small" text-anchor="start">Action</text>
+  <rect x="60" y="705" width="16" height="12" class="box box-work" rx="3"/>
+  <text x="82" y="715" class="text text-small" text-anchor="start">Work item</text>
 
-  <rect x="65" y="865" width="20" height="15" class="box box-work" rx="4"/>
-  <text x="95" y="877" class="text text-small" text-anchor="start">Work Item</text>
+  <rect x="60" y="725" width="16" height="12" class="box box-end" rx="6"/>
+  <text x="82" y="735" class="text text-small" text-anchor="start">Exit</text>
 </svg>
