@@ -47,15 +47,15 @@
   <!-- Arrow to Phase Check -->
   <path d="M400 220 L400 270" class="arrow"/>
 
-  <!-- Phase Closed? - Wider diamond with better text -->
+  <!-- Phase Closed? -->
   <polygon points="400,270 510,320 400,370 290,320" class="box box-decision"/>
   <text x="400" y="315" class="text text-bold text-white" font-size="13">Phase closed?</text>
 
-  <!-- Yes arrow to Exit (directly to the right) -->
+  <!-- Yes arrow to Exit -->
   <path d="M510 320 L580 320" class="arrow"/>
   <text x="540" y="310" class="label">Yes</text>
 
-  <!-- EXIT (to the right of decision) -->
+  <!-- EXIT -->
   <rect x="580" y="295" width="100" height="50" class="box box-end" rx="25"/>
   <text x="630" y="325" class="text text-bold">Exit</text>
 
@@ -63,12 +63,12 @@
   <path d="M400 370 L400 420" class="arrow"/>
   <text x="415" y="400" class="label label-no">No</text>
 
-  <!-- Role Decision - Wider diamond -->
+  <!-- What to do? -->
   <polygon points="400,420 530,480 400,540 270,480" class="box box-decision"/>
-  <text x="400" y="470" class="text text-bold text-white" font-size="13">Implementer</text>
-  <text x="400" y="488" class="text text-bold text-white" font-size="13">role?</text>
+  <text x="400" y="470" class="text text-bold text-white" font-size="13">Need to</text>
+  <text x="400" y="488" class="text text-bold text-white" font-size="13">build?</text>
 
-  <!-- Discusser path (left) -->
+  <!-- Discuss path (left) -->
   <path d="M270 480 L170 480 L170 560" class="arrow"/>
   <text x="210" y="470" class="label label-no">No</text>
 
@@ -80,7 +80,7 @@
   <!-- Arrow back up from Say -->
   <path d="M170 610 L170 660 L60 660 L60 195 L300 195" class="arrow"/>
 
-  <!-- Implementer path (right) -->
+  <!-- Build path (right) -->
   <path d="M530 480 L620 480 L620 530" class="arrow"/>
   <text x="560" y="470" class="label">Yes</text>
 
@@ -108,7 +108,7 @@
   <!-- Arrow to Complete -->
   <path d="M700 712 L740 712 L740 195 L500 195" class="arrow"/>
 
-  <!-- Complete Work (inline) -->
+  <!-- Complete Work -->
   <rect x="540" y="745" width="160" height="45" class="box box-work" rx="8" transform="translate(0,-10)"/>
   <text x="620" y="765" class="text text-bold">pm work-done</text>
   <text x="620" y="778" class="text text-small">Mark complete</text>
@@ -130,4 +130,10 @@
 
   <rect x="60" y="725" width="16" height="12" class="box box-end" rx="6"/>
   <text x="82" y="735" class="text text-small" text-anchor="start">Exit</text>
+
+  <!-- Note about perspectives -->
+  <rect x="50" y="420" width="130" height="60" fill="#161b22" stroke="#30363d" rx="6" stroke-dasharray="3,3"/>
+  <text x="115" y="442" class="text text-small" font-size="10">Agent reads their</text>
+  <text x="115" y="455" class="text text-small" font-size="10">perspective to decide</text>
+  <text x="115" y="468" class="text text-small" font-size="10">discuss vs build</text>
 </svg>
