@@ -1,8 +1,0 @@
-{
-  "name": "team-relay",
-  "description": "Multi-agent orchestration system that simulates a software development team (CEO, PM, developers, designers) who communicate via shared chat log and hand off work to each other",
-  "version": "1.0.0",
-  "author": {
-    "name": "John"
-  }
-}

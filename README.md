@@ -1,211 +1,138 @@
-# Claude Team Relay Plugin
+# Plasmodium
 
-A Claude Code plugin that simulates a software development team using multiple AI agents. Each agent has a specific role (CEO, PM, developers, designers, QA) and they collaborate by passing work to each other through a shared communication log.
+Multi-agent collaboration through bounded discussion phases.
 
-## Why?
+## What is it?
 
-When Claude works alone on complex projects, it can lose focus, skip steps, or miss edge cases. This plugin addresses that by:
+Plasmodium coordinates multiple Claude instances to work on tasks together. An **owner** agent breaks work into **phases**, each with specific **perspectives** that debate and build. Phases have message limits that force convergence, and **work items** track parallel implementation.
 
-- **Forcing collaboration**: Agents must hand off work and review each other's output
-- **Adding accountability**: QA verifies against a deliverables checklist before completion
-- **Creating structure**: PM breaks down tasks, devs pair-program, designers iterate
-- **Catching errors**: Headless browser testing catches console errors humans might miss
+## Quick Start
 
-The result is more thorough, well-tested code with better documentation.
-
-## Installation
-
-### Option 1: Install from GitHub (recommended)
+### 1. Install in your project
 
 ```bash
-# Add the marketplace
-/plugin marketplace add https://github.com/Hollings/claude-team-relay-plugin
-
-# Install the plugin (choose user/project/local scope when prompted)
-/plugin install team-relay@team-relay-marketplace
+# From your project directory
+/path/to/plasmodium/pm init
 ```
 
-### Option 2: Install from local clone
+This creates a `.plasmodium/` directory and adds the `pm` command to your path for this session.
+
+### 2. Start the dashboard
 
 ```bash
-# Clone the repo
-git clone git@github.com:Hollings/claude-team-relay-plugin.git
-
-# Add as local marketplace
-/plugin marketplace add ./claude-team-relay-plugin
-
-# Install
-/plugin install team-relay@team-relay-marketplace
+pm dashboard
+# Opens http://localhost:3456
 ```
 
-### Option 3: Development mode (temporary, current session only)
+The dashboard shows tasks, phases, messages, and work items in real-time.
+
+### 3. Create your first task
 
 ```bash
-claude --plugin-dir ./claude-team-relay-plugin
+pm task "Build a REST API with health and time endpoints"
 ```
 
-## Usage
+This spawns an **owner** agent who will:
+1. Create a Design phase with 2+ perspectives (e.g., "minimalist", "pragmatist")
+2. Let them debate until the message limit
+3. Create a Build phase with implementer perspectives
+4. Track work items until everything is complete
 
-### Start a new relay
+## Core Concepts
 
-```
-/team-relay:start Build a todo app with dark mode
-/team-relay:start ceo Build a REST API for user authentication
-/team-relay:start pm Add search functionality to the dashboard
-```
+**Owner** - Coordinates the task. Creates phases, defines perspectives, synthesizes results. Doesn't implement—only orchestrates.
 
-The relay runs in the background while Claude monitors progress and provides detailed updates on what the team is doing.
+**Phase** - A bounded discussion with a name, perspectives, and message limit. Phases close when the limit is reached AND all work items are done.
 
-### Other commands
+**Perspective** - A viewpoint assigned to an agent (e.g., "security advocate", "UX minimalist", "test-first developer"). Not fixed roles—the owner defines what perspectives each phase needs.
 
-| Command | Description |
-|---------|-------------|
-| `/team-relay:start [agent] <task>` | Start a new relay (defaults to CEO) |
-| `/team-relay:continue <agent>` | Resume an interrupted relay |
-| `/team-relay:reset` | Clear all relay state |
-| `/team-relay:status` | Show current relay status |
+**Work Items** - Claimed tasks within a phase. Agents call `pm work "description"` before building, `pm work-done "summary"` when finished. Prevents duplicate work and premature phase closure.
 
-## The Team
+## Commands
 
-| Agent | Model | Role |
-|-------|-------|------|
-| **CEO** | Sonnet | Sets vision and direction, delegates to PM |
-| **PM** | Sonnet | Creates deliverables doc, breaks down tasks, coordinates team |
-| **DEV_JOHN** | Opus | Developer - writes code, pairs with Alice |
-| **DEV_ALICE** | Opus | Developer - reviews John's code, writes code |
-| **DESIGNER_MAYA** | Opus | Senior designer - UX expertise, mentors Alex |
-| **DESIGNER_ALEX** | Haiku | Junior designer - fresh ideas, creative energy |
-| **QA_ANDREW** | Opus | Final gatekeeper - testing, verification, cleanup, docs |
-
-## How It Works
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                     USER TASK                           │
-└─────────────────────┬───────────────────────────────────┘
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│  CEO: Interprets task, sets vision, delegates to PM    │
-└─────────────────────┬───────────────────────────────────┘
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│  PM: Creates DELIVERABLES.md, assigns work to pairs    │
-└──────────┬──────────────────────────────┬───────────────┘
-           │                              │
-           ▼                              ▼
-┌──────────────────────┐      ┌───────────────────────────┐
-│  DEV_JOHN ↔ ALICE    │      │  DESIGNER_MAYA ↔ ALEX     │
-│  Code, review, iterate│      │  Design, debate, agree    │
-└──────────┬───────────┘      └───────────┬───────────────┘
-           │                              │
-           └──────────┬───────────────────┘
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│  QA_ANDREW: Verify deliverables, test, cleanup, docs   │
-│  → If issues found, send back to appropriate agent     │
-│  → If 100% complete, finish relay                      │
-└─────────────────────┬───────────────────────────────────┘
-                      ▼
-                    DONE
-        (Claude starts the app and verifies it works)
+### Project Setup
+```bash
+pm init                    # Initialize .plasmodium in current directory
+pm dashboard [port]        # Start web dashboard (default: 3456)
+pm reset                   # Clear all plasmodium state
 ```
 
-### The Deliverables Contract
-
-PM creates `.team-relay/DELIVERABLES.md` at the start:
-
-```markdown
-# Project Deliverables
-
-## Summary
-Building a todo app with dark mode support...
-
-## Features
-- [ ] Add/edit/delete todo items
-- [ ] Mark todos as complete
-- [ ] Dark mode toggle
-- [ ] Persist to localStorage
-
-## Ready Checklist
-- [ ] All features implemented
-- [ ] No console errors
-- [ ] Tests pass
-- [ ] README exists
+### Task Management (for owners)
+```bash
+pm task "description"      # Create a new task (spawns owner agent)
+pm status                  # Show all tasks and phases
 ```
 
-QA verifies 100% of checkboxes before approving. If anything fails, work goes back to the responsible agent.
-
-### Communication
-
-Agents communicate through `.team-relay/chat.log`:
-
-```
-[CEO] Task received: Build a todo app with dark mode. This should be a simple
-single-page app that stores todos in localStorage...
-
-[PM] Breaking this into phases:
-1. Design - Maya will create wireframes
-2. Implementation - John will build the core functionality
-3. QA - Andrew will verify everything works
-
-[DESIGNER_MAYA] Starting with mobile-first layout. Proposing a simple list view
-with a floating action button for adding todos...
-
-[DESIGNER_ALEX] I like it but what about swipe-to-delete? More intuitive than
-a delete button...
+### Phase Operations (for agents)
+```bash
+pm chat                    # Read current phase messages
+pm say "message"           # Post to current phase
+pm work "description"      # Claim a work item (announces to chat)
+pm work-status             # See all work items in phase
+pm work-done "summary"     # Mark your work complete
 ```
 
-## Workspace Structure
+### Agent Management
+```bash
+pm spawn <name> [perspective]  # Spawn agent with perspective
+pm register <name>             # Register current agent
+pm kill <name>                 # Stop an agent
+```
 
-The relay creates a `.team-relay/` directory in your project:
+## Workflow Example
+
+```
+You: pm task "Add user authentication"
+
+Owner creates phase: "Auth Design"
+  Perspectives: security-advocate, ux-minimalist
+
+  @security: "We need bcrypt, JWT tokens, rate limiting..."
+  @ux: "Keep it simple - email/password, maybe OAuth later"
+  @security: "At minimum: hashed passwords, secure sessions"
+  @ux: "Agreed. Let's start with sessions, add JWT if needed"
+  [Phase closed - 6/6 messages]
+
+Owner creates phase: "Auth Build"
+  Perspectives: backend-implementer, frontend-implementer
+
+  @backend: "I'll handle the auth routes and middleware"
+  @backend: [WORK] Starting: auth.py with login/logout/register
+  @frontend: "I'll build the login form and session handling"
+  @frontend: [WORK] Starting: login component and auth context
+  @backend: [WORK DONE] auth.py complete with bcrypt + sessions
+  @frontend: [WORK DONE] Login form with error handling
+  [Phase closed - 8/8 messages, 2/2 work items done]
+
+Owner: Task complete.
+```
+
+## Directory Structure
 
 ```
 your-project/
-└── .team-relay/
-    ├── chat.log           # Team communication (append-only)
-    ├── output.log         # Orchestrator activity
-    ├── sessions.json      # Session IDs for resuming
-    ├── DELIVERABLES.md    # Contract created by PM
-    └── tools/
-        └── check-console.js  # Headless browser testing
+├── .plasmodium/
+│   ├── agents.json              # Registered agents
+│   └── tasks/
+│       └── tk-abc123/
+│           ├── task.json        # Task metadata
+│           └── phases/
+│               └── ph-xyz789/
+│                   ├── phase.json      # Phase config
+│                   ├── messages.jsonl  # Chat log
+│                   └── work.jsonl      # Work items
+
+plasmodium/                      # The tool itself
+├── pm                           # CLI entry point
+├── lib/core.sh                  # Command implementations
+├── dashboard/
+│   ├── server.py               # Dashboard backend
+│   └── index.html              # Dashboard frontend
+└── prompts/
+    ├── owner.md                # Owner agent prompt
+    └── agent.md                # Phase agent prompt
 ```
 
-## Features
+## Why "Plasmodium"?
 
-### Automatic Service Startup
-
-When the relay completes, Claude automatically:
-- Detects your stack (Docker, Node, Python, etc.)
-- Starts the appropriate services
-- Verifies no console errors with headless Chrome
-- Reports the URL when ready
-
-### Headless Console Checking
-
-QA uses Puppeteer to catch JavaScript errors:
-
-```bash
-node .team-relay/tools/check-console.js http://localhost:3000
-```
-
-Returns JSON with all console errors, warnings, and failed network requests.
-
-### Detailed Progress Updates
-
-While the relay runs, Claude provides specific updates:
-
-> Maya is designing a dark header with centered logo and hamburger menu.
-> Alex pushed back saying hamburgers are outdated - they're debating a
-> bottom tab bar instead.
-
-Not vague summaries like "Maya is working on the design."
-
-## Requirements
-
-- [Claude Code](https://claude.ai/code) CLI
-- Node.js (for console checker)
-- Puppeteer (`npm install puppeteer` - installed automatically when needed)
-
-## License
-
-MIT
+Like the slime mold *Physarum polycephalum*, this system has no central controller. Agents explore problems from different perspectives, communicate through shared state, and converge on solutions through bounded interaction. The owner provides structure, but the actual work emerges from collaboration.
