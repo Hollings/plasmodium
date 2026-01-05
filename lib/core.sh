@@ -707,6 +707,12 @@ EOF
 
     echo '{"agents":{}}' > "$pm_dir/agents.json"
 
+    # Exclude .plasmodium from git (without modifying tracked files)
+    local git_exclude=".git/info/exclude"
+    if [[ -f "$git_exclude" ]] && ! grep -q "^\.plasmodium" "$git_exclude"; then
+        echo ".plasmodium" >> "$git_exclude"
+    fi
+
     echo "Initialized plasmodium in $PWD"
 
     # Start dashboard in background on first available port
