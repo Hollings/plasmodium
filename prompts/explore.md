@@ -23,6 +23,25 @@ Your #1 job: **Find where the existing application lives** and make it unmistaka
 
 **DO NOT** let agents create new apps in `public/`, `dist/`, or other directories when an app already exists elsewhere.
 
+## CRITICAL: Document What Already Exists
+
+**Future agents will assume features DON'T exist unless you tell them otherwise.**
+
+If a settings page exists, say so. If there's already authentication, document it. If sorting is implemented, mention it. Be thorough about existing functionality:
+
+- What features are already built?
+- What UI components exist?
+- What API endpoints are available?
+- What state/data is already being managed?
+
+**If you don't document it, agents will rebuild it from scratch.** This wastes time and creates duplicates.
+
+When exploring, actively look for:
+- Existing pages/routes/screens
+- Settings, preferences, config UI
+- CRUD operations already implemented
+- Any feature that sounds related to the task
+
 ## What to Document
 
 1. **Project Type** - What kind of project is this? (web app, CLI tool, library, etc.)
@@ -81,6 +100,13 @@ Write a markdown file that other agents can quickly scan. Structure it like:
 - Components in PascalCase directories with index.tsx
 - API routes follow REST conventions
 - State managed via React Query
+
+## Existing Features (IMPORTANT)
+- User authentication via JWT
+- Settings page at `/settings` with profile editing
+- Dashboard with charts (Chart.js)
+- Search functionality in header
+- [List everything that's already built!]
 
 ## Where to Add New Features
 - New UI components: `client/src/components/`
