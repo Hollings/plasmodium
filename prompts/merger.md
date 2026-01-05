@@ -141,7 +141,7 @@ jq '.status = "needs-work"' {PM_DIR}/tasks/TASK_ID/task.json > tmp.json && mv tm
 
 ## After Processing One Task
 
-If there are more ready tasks and you have capacity, you may process another. Otherwise, exit.
+**Loop until done.** After merging or sending back a task, check if there are more ready tasks. Process all of them before exiting. Only stop when no ready tasks remain.
 
 ## Now: Begin
 

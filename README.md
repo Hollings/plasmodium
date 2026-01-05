@@ -8,23 +8,23 @@ Plasmodium coordinates multiple Claude instances to work on tasks together. An *
 
 ## Quick Start
 
-### 1. Install in your project
+### 1. Prerequisites
+
+Plasmodium uses git worktrees for task isolation. Your project needs:
+
+```bash
+git init                              # If not already a repo
+git add -A && git commit -m "Initial" # Need at least one commit
+```
+
+### 2. Install in your project
 
 ```bash
 # From your project directory
 /path/to/plasmodium/pm init
 ```
 
-This creates a `.plasmodium/` directory and adds the `pm` command to your path for this session.
-
-### 2. Start the dashboard
-
-```bash
-pm dashboard
-# Opens http://localhost:3456
-```
-
-The dashboard shows tasks, phases, messages, and work items in real-time.
+This creates a `.plasmodium/` directory, starts the dashboard, and adds `pm` to your path.
 
 ### 3. Create your first task
 
@@ -32,11 +32,11 @@ The dashboard shows tasks, phases, messages, and work items in real-time.
 pm task "Build a REST API with health and time endpoints"
 ```
 
-This spawns an **owner** agent who will:
-1. Create a Design phase with 2+ perspectives (e.g., "minimalist", "pragmatist")
-2. Let them debate until the message limit
-3. Create a Build phase with implementer perspectives
-4. Track work items until everything is complete
+This:
+1. Creates a **git branch** and **worktree** for isolated work
+2. Spawns an **explore** agent to map your project structure
+3. Spawns an **owner** agent who orchestrates phases until done
+4. When finished, `pm merge` reviews and merges back to main
 
 ## Core Concepts
 
@@ -48,6 +48,10 @@ This spawns an **owner** agent who will:
 
 **Work Items** - Claimed tasks within a phase. Agents call `pm work "description"` before building, `pm work-done "summary"` when finished. Prevents duplicate work and premature phase closure.
 
+**Worktrees** - Each task runs in its own git worktree (branch + directory). Tasks can run in parallel without conflicts. When done, the merger agent reviews and merges to main.
+
+**Phase History** - After each phase, the owner writes a summary to `phase_history.md`. Future phase agents receive this context so they know what was already decided/built.
+
 ## Commands
 
 ### Project Setup
@@ -57,10 +61,18 @@ pm dashboard [port]        # Start web dashboard (default: 3456)
 pm reset                   # Clear all plasmodium state
 ```
 
-### Task Management (for owners)
+### Task Management
 ```bash
-pm task "description"      # Create a new task (spawns owner agent)
-pm status                  # Show all tasks and phases
+pm task "description"      # Create task (spawns explore + owner agents)
+pm status                  # Show all tasks, phases, agents
+pm kill <task-id>          # Kill a task and its agents
+```
+
+### Merge Workflow
+```bash
+pm done                    # Mark task ready for merge (owner runs this)
+pm merge                   # Spawn merger to review ready tasks
+pm resume <task-id>        # Resume a task that needs work
 ```
 
 ### Phase Operations (for agents)
@@ -72,12 +84,6 @@ pm work-status             # See all work items in phase
 pm work-done "summary"     # Mark your work complete
 ```
 
-### Agent Management
-```bash
-pm spawn <name> [perspective]  # Spawn agent with perspective
-pm register <name>             # Register current agent
-pm kill <name>                 # Stop an agent
-```
 
 ## Workflow Example
 
@@ -113,9 +119,13 @@ Owner: Task complete.
 your-project/
 ├── .plasmodium/
 │   ├── agents.json              # Registered agents
+│   ├── worktrees/               # Git worktrees (one per task)
+│   │   └── tk-abc123/           # Isolated working directory
 │   └── tasks/
 │       └── tk-abc123/
-│           ├── task.json        # Task metadata
+│           ├── task.json        # Task metadata (status, branch, owner)
+│           ├── context.md       # Project context (from explore agent)
+│           ├── phase_history.md # Summary of completed phases
 │           └── phases/
 │               └── ph-xyz789/
 │                   ├── phase.json      # Phase config
@@ -129,8 +139,10 @@ plasmodium/                      # The tool itself
 │   ├── server.py               # Dashboard backend
 │   └── index.html              # Dashboard frontend
 └── prompts/
+    ├── explore.md              # Explore agent prompt
     ├── owner.md                # Owner agent prompt
-    └── agent.md                # Phase agent prompt
+    ├── agent.md                # Phase agent prompt
+    └── merger.md               # Merger agent prompt
 ```
 
 ## Why "Plasmodium"?
@@ -145,34 +157,44 @@ Like the slime mold *Physarum polycephalum*, this system has no central controll
 flowchart TD
     subgraph User
         A[pm task 'description']
+        Z[pm merge]
+    end
+
+    subgraph Setup
+        B[Create branch + worktree]
+        C[Explore agent<br/>maps project]
     end
 
     subgraph Owner["Owner Agent"]
-        B[Spawn & read task]
-        C[Create phase]
-        D[Define perspectives]
-        E[Spawn phase agents]
-        F{More phases<br/>needed?}
-        G[Task complete]
+        D[Read context]
+        E[Create phase]
+        F[Spawn phase agents]
+        G{More phases?}
+        H[pm done<br/>mark ready]
     end
 
-    subgraph Phase["Phase (bounded discussion)"]
-        H[Agent A<br/>perspective 1]
-        I[Agent B<br/>perspective 2]
-        J[Discussion + Work]
-        K[Message limit reached<br/>+ all work done]
+    subgraph Phase["Phase"]
+        I[Agents discuss/build]
+        J[Write phase summary]
     end
 
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> H & I
-    H & I --> J
-    J --> K
-    K --> F
-    F -->|Yes| C
-    F -->|No| G
+    subgraph Merge["Merger Agent"]
+        K[Review ready tasks]
+        L{Conflicts?}
+        M[Merge to main]
+        N[Send back<br/>with feedback]
+    end
+
+    A --> B --> C --> D
+    D --> E --> F --> I
+    I --> J --> G
+    G -->|Yes| E
+    G -->|No| H
+    H -.-> Z
+    Z --> K --> L
+    L -->|No| M
+    L -->|Complex| N
+    N -.->|pm resume| D
 ```
 
 ### Phase Agent Flow
