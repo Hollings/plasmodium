@@ -758,15 +758,22 @@ pm_task() {
         exit 1
     fi
 
-    local task_id=$(create_task "$description")
+    local task_id
+    task_id=$(create_task "$description") || exit 1
+
+    if [[ -z "$task_id" ]]; then
+        echo "Error: Failed to create task" >&2
+        exit 1
+    fi
+
     local task=$(get_task "$task_id")
     local owner=$(echo "$task" | jq -r '.owner')
 
     echo "Created task: $task_id"
     echo "Owner: @$owner"
 
-    # Background the entire explore → owner sequence
-    _run_task_agents "$task_id" "$owner" &
+    # Background the entire explore → owner sequence (suppress output)
+    _run_task_agents "$task_id" "$owner" >/dev/null 2>&1 &
     disown
 }
 
