@@ -537,6 +537,7 @@ spawn_agent_with_perspective() {
     local task_id="$2"
     local phase_id="$3"
     local perspective="$4"
+    local model="${5:-opus}"  # Default to opus
 
     local pm_dir=$(require_pm_dir)
     local project_dir=$(get_project_dir)
@@ -602,13 +603,13 @@ $prompt"
     local log_file="$log_dir/${name}.log"
     (
         cd "$work_dir"
-        echo "[$(date)] Agent $name starting (phase: $phase_id, perspective: $perspective, workdir: $work_dir)" >> "$log_file"
+        echo "[$(date)] Agent $name starting (phase: $phase_id, perspective: $perspective, model: $model, workdir: $work_dir)" >> "$log_file"
         PM_AGENT_NAME="$name" \
         PM_TASK_ID="$task_id" \
         PM_PHASE_ID="$phase_id" \
         PM_ROLE="$perspective" \
         PM_CLI="$PM_CLI" \
-        claude --dangerously-skip-permissions -p "$prompt" >> "$log_file" 2>&1
+        claude --dangerously-skip-permissions --model "$model" -p "$prompt" >> "$log_file" 2>&1
         echo "[$(date)] Agent $name exited with code $?" >> "$log_file"
     ) &
 
@@ -906,19 +907,29 @@ pm_phase() {
 
     # Collect agent names as we spawn them
     local agent_names=()
+    local display_perspectives=()
 
-    # Spawn agents with perspectives
-    for perspective in "${perspectives[@]}"; do
+    # Spawn agents with perspectives (parse model from "perspective:model" format)
+    for spec in "${perspectives[@]}"; do
+        local perspective="${spec%%:*}"  # Everything before colon
+        local model="${spec##*:}"        # Everything after colon
+
+        # If no colon, model equals perspective - default to opus
+        if [[ "$model" == "$perspective" ]]; then
+            model="opus"
+        fi
+
         local agent_name=$(gen_agent_name)
         agent_names+=("$agent_name")
-        echo "Spawning @$agent_name: $perspective"
-        spawn_agent_with_perspective "$agent_name" "$task_id" "$phase_id" "$perspective"
+        display_perspectives+=("$perspective")
+        echo "Spawning @$agent_name: $perspective ($model)"
+        spawn_agent_with_perspective "$agent_name" "$task_id" "$phase_id" "$perspective" "$model"
     done
 
     # Post intro message listing who's in the room
     local intro="Phase '$name' started. In this room:\n"
     for i in "${!agent_names[@]}"; do
-        intro+="- @${agent_names[$i]}: ${perspectives[$i]}\n"
+        intro+="- @${agent_names[$i]}: ${display_perspectives[$i]}\n"
     done
     intro+="\nDiscuss and reach a conclusion."
     append_message "$task_id" "$phase_id" "system" "" "$(echo -e "$intro")"

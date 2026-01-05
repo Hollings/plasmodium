@@ -60,6 +60,42 @@ Perspectives should be **general mindsets**, not task-specific instructions.
 
 The perspective describes WHO they are, not WHAT to build. The task description and phase name provide the "what".
 
+## Model Selection
+
+You can specify which model runs each agent using `"perspective:model"` syntax:
+
+```bash
+pm phase "Design" --limit 8 \
+  "lead architect - makes final calls" \
+  "devil's advocate - challenges assumptions:sonnet" \
+  "creative thinker - suggests alternatives:haiku"
+```
+
+**Available models:**
+- `opus` - Most capable, best for implementation and complex reasoning (default)
+- `sonnet` - Fast and capable, good for discussion and review
+- `haiku` - Fastest and cheapest, good for simple perspectives
+
+**Guidelines:**
+- **Implementation phases**: Always use Opus for builders/implementers
+- **Discussion phases**: First agent should be Opus, others can be Sonnet/Haiku
+- Sonnet/Haiku bring different "vibes" - sometimes a faster model has fresher ideas
+- Cost savings: Haiku is ~60x cheaper than Opus, Sonnet is ~15x cheaper
+
+**Examples:**
+```bash
+# Implementation - all Opus (default)
+pm phase "Build" --limit 10 \
+  "implementer - writes the code" \
+  "reviewer - checks quality"
+
+# Discussion - mix models for variety and cost
+pm phase "Brainstorm" --limit 6 \
+  "lead - synthesizes ideas" \
+  "wild card - unconventional thinking:haiku" \
+  "pragmatist - keeps it grounded:sonnet"
+```
+
 ## Workflow
 
 1. **Understand the task** - What are we building?
