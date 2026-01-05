@@ -926,10 +926,10 @@ pm_phase() {
         spawn_agent_with_perspective "$agent_name" "$task_id" "$phase_id" "$perspective" "$model"
     done
 
-    # Post intro message listing who's in the room
+    # Post intro message listing who's in the room (perspectives hidden - revealed through conversation)
     local intro="Phase '$name' started. In this room:\n"
     for i in "${!agent_names[@]}"; do
-        intro+="- @${agent_names[$i]}: ${display_perspectives[$i]}\n"
+        intro+="- @${agent_names[$i]}\n"
     done
     intro+="\nDiscuss and reach a conclusion."
     append_message "$task_id" "$phase_id" "system" "" "$(echo -e "$intro")"
