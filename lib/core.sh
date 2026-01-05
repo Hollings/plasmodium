@@ -657,17 +657,35 @@ pm_init() {
             echo "  (This will run 'git init' and create an initial commit)" >&2
             return 1
         fi
-    elif ! git rev-parse HEAD >/dev/null 2>&1; then
-        if [[ "$git_init" == true ]]; then
-            echo "Creating initial commit..."
-            git add -A
-            git commit -m "Initial commit" --allow-empty
-        else
-            echo "Error: No commits yet" >&2
+    else
+        # Git exists - check if root is current directory (not a parent)
+        local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [[ "$git_root" != "$PWD" ]]; then
+            echo "Error: Git root is '$git_root', not current directory" >&2
             echo "" >&2
-            echo "Run: pm init --git-init" >&2
-            echo "  (This will create an initial commit)" >&2
+            if [[ "$git_root" == "$HOME" ]]; then
+                echo "Your HOME directory has a .git - this is probably a mistake!" >&2
+                echo "Fix with: rm -rf ~/.git" >&2
+            else
+                echo "You're in a subdirectory of another git repo." >&2
+                echo "Either cd to the repo root or initialize a new repo here." >&2
+            fi
             return 1
+        fi
+
+        # Git exists and root is correct - check for commits
+        if ! git rev-parse HEAD >/dev/null 2>&1; then
+            if [[ "$git_init" == true ]]; then
+                echo "Creating initial commit..."
+                git add -A
+                git commit -m "Initial commit" --allow-empty
+            else
+                echo "Error: No commits yet" >&2
+                echo "" >&2
+                echo "Run: pm init --git-init" >&2
+                echo "  (This will create an initial commit)" >&2
+                return 1
+            fi
         fi
     fi
 
