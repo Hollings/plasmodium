@@ -721,6 +721,7 @@ EOF
     if [[ -f "$server" ]]; then
         nohup python3 "$server" --port "$port" --pm-dir "$PWD/$pm_dir" > "$pm_dir/dashboard.log" 2>&1 &
         echo "$!" > "$pm_dir/dashboard.pid"
+        echo "$port" > "$pm_dir/dashboard.port"
         echo ""
         echo "Dashboard: http://localhost:$port"
         echo ""
@@ -830,9 +831,17 @@ pm_task() {
 
     local task=$(get_task "$task_id")
     local owner=$(echo "$task" | jq -r '.owner')
+    local pm_dir=$(get_pm_dir)
 
     echo "Created task: $task_id"
     echo "Owner: @$owner"
+
+    # Show dashboard link if available
+    if [[ -f "$pm_dir/dashboard.port" ]]; then
+        local port=$(cat "$pm_dir/dashboard.port")
+        echo ""
+        echo "Dashboard: http://localhost:$port"
+    fi
 
     # Background the entire explore → owner sequence (suppress output)
     _run_task_agents "$task_id" "$owner" >/dev/null 2>&1 &
