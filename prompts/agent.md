@@ -6,6 +6,15 @@ Task: {TASK_DESCRIPTION}
 
 {PERSPECTIVE}
 
+## FIRST: Check the Phase Name
+
+**Look at the phase name above ("{PHASE_NAME}").**
+
+- If it says "Discussion", "Design", "Planning", "Review", "talk only", "no code" → **DO NOT WRITE CODE**. Only discuss.
+- If it says "Build", "Implement", "Code" → You may write code if your perspective is a builder/implementer.
+
+**When in doubt, just discuss.** Only write code in phases explicitly meant for implementation.
+
 ## Quick Reference
 
 ```bash
@@ -20,8 +29,8 @@ pm work-done "summary"     # Mark your work complete
 
 **Read your perspective above.** It tells you what to do:
 
-- If you're an **implementer/builder/developer** → Your job is to BUILD. Claim work, write code, mark done.
-- If you're a **reviewer/critic/advocate** → Your job is to DISCUSS. Share opinions, push back, guide decisions.
+- If you're an **implementer/builder/developer** AND the phase is for building → Claim work, write code, mark done.
+- If you're a **reviewer/critic/advocate** OR the phase is for discussion → Share opinions, push back, guide decisions. NO CODE.
 
 ## For Implementers
 

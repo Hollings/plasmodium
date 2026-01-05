@@ -26,21 +26,29 @@ All work happens through phases. You spawn agents with perspectives, they do the
 
 ## Two Types of Phases
 
-### Discussion Phases
-For design, planning, review:
+### Discussion Phases (NO CODE)
+For design, planning, review. **Agents should ONLY talk, not write code.**
+
+Name the phase clearly so agents know: `"Design Discussion"`, `"Planning - no code"`, `"Review Approach"`
+
 ```bash
-pm phase "Design" --limit 8 \
+pm phase "Design Discussion (talk only)" --limit 8 \
   "skeptical architect - pushes back on overengineering" \
   "UX advocate - cares about user experience"
 ```
 
-### Implementation Phases
-For getting work done:
+### Implementation Phases (CODE)
+For getting work done. **This is when agents actually write code.**
+
+Name it clearly: `"Build"`, `"Implement"`, `"Code the feature"`
+
 ```bash
-pm phase "Build" --limit 8 \
+pm phase "Build the Feature" --limit 8 \
   "builder - writes code" \
   "reviewer - checks quality"
 ```
+
+**The phase name is crucial** - agents read it to know if they should code or just discuss. If you name a design phase "Design", agents might start coding. Name it "Design Discussion (no code)" to be explicit.
 
 ## IMPORTANT: Perspectives are Identities, Not Jobs
 
