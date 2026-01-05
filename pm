@@ -122,7 +122,7 @@ case "${1:-}" in
         echo "Usage: pm <command> [args...]"
         echo ""
         echo "Setup:"
-        echo "  init                      Initialize (auto-starts dashboard)"
+        echo "  init [--git-init]         Initialize (--git-init to setup git too)"
         echo "  reset                     Clear all state"
         echo "  clean                     Remove dead agents from registry"
         echo "  dashboard [port]          Start dashboard (foreground)"
