@@ -125,7 +125,7 @@ case "${1:-}" in
         echo "  init [--git-init]         Initialize (--git-init to setup git too)"
         echo "  reset                     Clear all state"
         echo "  clean                     Remove dead agents from registry"
-        echo "  dashboard [port]          Start dashboard (foreground)"
+        echo "  dashboard                 Show dashboard URL (or start with 'dashboard [port]')"
         echo "  dashboard-stop            Stop dashboard for this project"
         echo ""
         echo "For Humans:"

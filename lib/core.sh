@@ -1664,7 +1664,6 @@ pm_work_done() {
 }
 
 pm_dashboard() {
-    local port="${1:-3456}"
     local pm_dir=$(get_pm_dir)
 
     if [[ -z "$pm_dir" ]]; then
@@ -1672,6 +1671,20 @@ pm_dashboard() {
         exit 1
     fi
 
+    # If no args, just show existing dashboard URL
+    if [[ $# -eq 0 ]] && [[ -f "$pm_dir/dashboard.port" ]]; then
+        local port=$(cat "$pm_dir/dashboard.port")
+        local pid_file="$pm_dir/dashboard.pid"
+        if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+            echo "Dashboard: http://localhost:$port"
+        else
+            echo "Dashboard not running. Start with: pm init"
+        fi
+        return 0
+    fi
+
+    # Otherwise start dashboard in foreground
+    local port="${1:-3456}"
     local dashboard_dir="$PM_SCRIPT_DIR/dashboard"
     local server="$dashboard_dir/server.py"
 
@@ -1680,7 +1693,7 @@ pm_dashboard() {
         exit 1
     fi
 
-    echo "Starting dashboard..."
+    echo "Starting dashboard on port $port..."
     python3 "$server" --port "$port" --pm-dir "$pm_dir"
 }
 
